@@ -1,0 +1,3572 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AcervoVivo — Biblioteca & Curadoria Literária</title>
+
+  <!-- Google Fonts: Editorial Serif + Clean Sans + Monospace -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+            sans: ['"Inter"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            parchment: '#FAF6EE',
+            ivory: '#FFFDF9',
+            sand: '#E8DEC8',
+            ink: '#1E2420',
+            'ink-muted': '#5C635E',
+            forest: {
+              DEFAULT: '#17382A',
+              light: '#23523E',
+              soft: '#EBF1ED',
+            },
+            terracotta: {
+              DEFAULT: '#B85A34',
+              light: '#D0744E',
+              dark: '#934424',
+              soft: '#F9ECE6',
+            },
+            gold: {
+              DEFAULT: '#C59648',
+              light: '#DFB872',
+              soft: '#FBF5E8',
+            },
+            wood: {
+              DEFAULT: '#7C583B',
+              dark: '#523823',
+              light: '#A87E5B',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Lucide Icons, Barcode Scanner & QR Code Generator -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    body {
+      background-color: #FAF6EE;
+      color: #1E2420;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    /* Subtle paper grain & literary book cover textures */
+    .paper-bg {
+      background-color: #FAF6EE;
+      background-image: radial-gradient(rgba(197, 150, 72, 0.11) 1px, transparent 0);
+      background-size: 22px 22px;
+    }
+
+    .book-jacket {
+      position: relative;
+      box-shadow:
+        inset 10px 0 18px rgba(0, 0, 0, 0.28),
+        inset -2px 0 4px rgba(255, 255, 255, 0.14),
+        0 10px 22px -6px rgba(30, 36, 32, 0.25);
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
+    }
+
+    .group:hover .book-jacket {
+      transform: translateY(-4px) rotate(-0.8deg);
+      box-shadow:
+        inset 10px 0 18px rgba(0, 0, 0, 0.28),
+        inset -2px 0 4px rgba(255, 255, 255, 0.18),
+        0 18px 28px -8px rgba(23, 56, 42, 0.32);
+    }
+
+    .book-spine-crease {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 12px;
+      width: 2px;
+      background: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.35),
+        rgba(255, 255, 255, 0.22),
+        rgba(0, 0, 0, 0.18)
+      );
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #FAF6EE;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D4C6AA;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #B8A582;
+    }
+
+    /* Print Styling for Spine Labels & Entrance Poster */
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      #printable-area,
+      #printable-area * {
+        visibility: visible !important;
+      }
+      #printable-area {
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        background: #FFFFFF !important;
+        padding: 20px !important;
+      }
+    }
+  </style>
+</head>
+<body class="paper-bg min-h-screen flex flex-col antialiased selection:bg-gold/30 selection:text-ink">
+
+  <!-- Toast Notification Banner -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-[calc(100vw-2.5rem)] pointer-events-none"></div>
+
+  <!-- ======================================================================= -->
+  <!-- 1. PUBLIC READER PORTAL (DEFAULT VIEW — ZERO ADMIN CONTROLS)            -->
+  <!-- ======================================================================= -->
+  <div id="reader-portal-shell" class="min-h-screen flex flex-col">
+
+    <!-- Top Editorial Header -->
+    <header class="bg-ivory/95 backdrop-blur-md border-b border-sand sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3.5 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-forest text-gold-light flex items-center justify-center shadow-sm border border-gold/30 shrink-0">
+            <i data-lucide="book-open-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-serif text-2xl sm:text-[26px] font-bold tracking-tight text-forest leading-none">
+                AcervoVivo
+              </span>
+              <span class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gold-soft text-wood-dark border border-gold/40">
+                Catálogo Público
+              </span>
+            </div>
+            <p class="text-xs text-ink-muted mt-0.5">
+              Curadoria Literária & Localização nas Estantes
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 sm:gap-3">
+          <div class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-parchment border border-sand text-xs text-ink-muted">
+            <span class="w-2 h-2 rounded-full bg-forest"></span>
+            <span id="reader-header-stats">0 obras catalogadas</span>
+          </div>
+
+          <!-- Discreet Staff Login Trigger -->
+          <button
+            type="button"
+            onclick="openStaffLoginModal()"
+            class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-parchment hover:bg-sand/60 text-ink border border-sand text-xs font-semibold transition cursor-pointer"
+            title="Área restrita aos voluntários e bibliotecários"
+          >
+            <i data-lucide="lock" class="w-3.5 h-3.5 text-terracotta"></i>
+            <span>Acesso da Equipe</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Editorial Hero & Search Experience -->
+    <section class="bg-forest text-ivory relative overflow-hidden border-b-4 border-gold">
+      <!-- Decorative subtle architectural lines -->
+      <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#DFB872 1px, transparent 1px); background-size: 28px 28px;"></div>
+
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 relative z-10">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+
+          <!-- Left Column: Title + Direct Search -->
+          <div class="lg:col-span-7 space-y-5">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forest-light/90 border border-gold/40 text-gold-light text-xs font-medium">
+              <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+              <span>Encontre o título, o tema e a prateleira exata</span>
+            </div>
+
+            <h1 class="font-serif text-3xl sm:text-5xl font-bold text-ivory leading-[1.12] tracking-tight">
+              Descubra o próximo livro que vai iluminar a sua leitura.
+            </h1>
+
+            <p class="text-sm sm:text-base text-ivory/80 max-w-2xl leading-relaxed">
+              Pesquise por título, autor, código da lombada ou assunto. Veja na hora se o exemplar está disponível e em qual das <strong class="text-gold-light font-semibold">3 estantes da sala</strong> ele está guardado.
+            </p>
+
+            <!-- Primary Search Input -->
+            <div class="bg-ivory p-2 rounded-2xl shadow-xl border border-gold/50 flex flex-col sm:flex-row gap-2">
+              <div class="relative flex-1 flex items-center">
+                <i data-lucide="search" class="w-5 h-5 text-ink-muted absolute left-3.5 pointer-events-none"></i>
+                <input
+                  type="text"
+                  id="reader-search-input"
+                  oninput="renderReaderCatalog()"
+                  placeholder="Busque por título, autor, código (ex: ESP-001) ou tema..."
+                  class="w-full pl-11 pr-9 py-3 bg-transparent text-ink placeholder-ink-muted/70 text-sm sm:text-base focus:outline-none"
+                />
+                <button
+                  type="button"
+                  id="reader-clear-search-btn"
+                  onclick="clearReaderSearch()"
+                  class="hidden absolute right-2.5 p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-sand/50 transition cursor-pointer"
+                  title="Limpar pesquisa"
+                >
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <button
+                type="button"
+                onclick="renderReaderCatalog()"
+                class="px-6 py-3 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm cursor-pointer shrink-0"
+              >
+                <span>Consultar Acervo</span>
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right Column: AI Literary Advisor Card -->
+          <div class="lg:col-span-5">
+            <div class="bg-ivory text-ink rounded-3xl p-5 sm:p-6 border-2 border-gold/60 shadow-2xl space-y-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-xl bg-gold-soft border border-gold/50 text-wood-dark flex items-center justify-center shrink-0">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-terracotta"></i>
+                  </div>
+                  <div>
+                    <h2 class="font-serif text-xl font-bold text-forest leading-tight">
+                      O que você precisa ler hoje?
+                    </h2>
+                    <p class="text-xs text-ink-muted">
+                      Consultor literário inteligente do nosso acervo
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <textarea
+                id="ai-need-input"
+                rows="2"
+                placeholder="Ex: Preciso de paz interior e oração, quero entender a filosofia grega, ou busco educação dos filhos..."
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand text-ink placeholder-ink-muted/75 text-xs sm:text-sm focus:outline-none focus:border-forest resize-none"
+              ></textarea>
+
+              <!-- Quick Mood / Need Chips -->
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onclick="triggerQuickNeed('Fortalecer a vida espiritual e a oração')"
+                  class="px-2.5 py-1 rounded-lg bg-parchment hover:bg-gold-soft text-ink-muted hover:text-ink border border-sand text-[11px] font-medium transition cursor-pointer"
+                >
+                  Vida espiritual
+                </button>
+                <button
+                  type="button"
+                  onclick="triggerQuickNeed('Clássicos da literatura grega e tragédias')"
+                  class="px-2.5 py-1 rounded-lg bg-parchment hover:bg-gold-soft text-ink-muted hover:text-ink border border-sand text-[11px] font-medium transition cursor-pointer"
+                >
+                  Literatura grega
+                </button>
+                <button
+                  type="button"
+                  onclick="triggerQuickNeed('Educação dos filhos e formação do caráter')"
+                  class="px-2.5 py-1 rounded-lg bg-parchment hover:bg-gold-soft text-ink-muted hover:text-ink border border-sand text-[11px] font-medium transition cursor-pointer"
+                >
+                  Educação & caráter
+                </button>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="btn-ai-recommend"
+                  onclick="runNeedBasedRecommendation()"
+                  class="flex-1 py-2.5 px-4 rounded-xl bg-forest hover:bg-forest-light text-ivory font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <i data-lucide="wand-2" class="w-4 h-4 text-gold-light"></i>
+                  <span>Recomendar Livros do Acervo</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-clear-ai-recommend"
+                  onclick="clearNeedRecommendation()"
+                  class="hidden py-2.5 px-3 rounded-xl bg-parchment hover:bg-sand text-ink-muted text-xs font-semibold border border-sand transition cursor-pointer"
+                  title="Voltar ao catálogo completo"
+                >
+                  Limpar
+                </button>
+              </div>
+
+              <!-- AI Advisor Explanation Banner -->
+              <div id="ai-recommendation-banner" class="hidden rounded-2xl bg-gold-soft/90 border border-gold/50 p-3.5 text-xs text-ink space-y-1">
+                <div class="flex items-center gap-1.5 font-bold text-forest">
+                  <i data-lucide="book-heart" class="w-4 h-4 text-terracotta"></i>
+                  <span>Curadoria recomendada para você:</span>
+                </div>
+                <p id="ai-recommendation-text" class="text-ink/90 leading-relaxed"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section Filter Bar & Catalog Grid -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 flex-1 w-full space-y-7">
+
+      <!-- Section Pills & Availability Toggle -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-sand">
+        <div id="reader-section-pills" class="flex items-center gap-2 overflow-x-auto pb-1">
+          <!-- Populated dynamically from state.sections -->
+        </div>
+
+        <div class="flex items-center justify-between md:justify-end gap-4 shrink-0">
+          <label class="inline-flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              id="reader-only-available"
+              onchange="renderReaderCatalog()"
+              class="w-4 h-4 rounded accent-forest cursor-pointer"
+            />
+            <span class="text-xs sm:text-sm font-medium text-ink">Apenas disponíveis agora</span>
+          </label>
+
+          <span id="reader-results-counter" class="text-xs font-mono text-ink-muted bg-ivory px-3 py-1.5 rounded-xl border border-sand">
+            0 obras
+          </span>
+        </div>
+      </div>
+
+      <!-- Books Grid -->
+      <div id="reader-books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <!-- Populated dynamically -->
+      </div>
+
+      <!-- Empty State + 1-Click Purchase Request -->
+      <div id="reader-empty-state" class="hidden rounded-3xl bg-ivory border-2 border-dashed border-sand p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-5">
+        <div class="w-16 h-16 rounded-2xl bg-terracotta-soft text-terracotta mx-auto flex items-center justify-center">
+          <i data-lucide="book-x" class="w-8 h-8"></i>
+        </div>
+        <div class="space-y-2">
+          <h3 class="font-serif text-2xl sm:text-3xl font-bold text-ink">
+            Este título ainda não consta em nossas estantes
+          </h3>
+          <p class="text-sm text-ink-muted max-w-md mx-auto leading-relaxed">
+            Não encontramos <strong id="empty-search-term" class="text-ink">sua busca</strong> no acervo atual. Você pode sugerir a aquisição desta obra para a equipe da biblioteca.
+          </p>
+        </div>
+
+        <div class="bg-parchment rounded-2xl p-4 sm:p-5 border border-sand max-w-md mx-auto text-left space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Título do livro desejado *</label>
+            <input
+              type="text"
+              id="wish-title-input"
+              placeholder="Nome do livro..."
+              class="w-full px-3.5 py-2 rounded-xl bg-ivory border border-sand text-sm focus:outline-none focus:border-forest"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Autor (opcional)</label>
+            <input
+              type="text"
+              id="wish-author-input"
+              placeholder="Nome do autor..."
+              class="w-full px-3.5 py-2 rounded-xl bg-ivory border border-sand text-sm focus:outline-none focus:border-forest"
+            />
+          </div>
+          <button
+            type="button"
+            onclick="submitReaderBookRequest()"
+            class="w-full py-2.5 px-4 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory font-semibold text-sm transition flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
+            <span>Solicitar Compra para a Biblioteca</span>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Editorial Footer -->
+    <footer class="bg-ivory border-t border-sand mt-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-muted">
+        <div class="flex items-center gap-2">
+          <i data-lucide="library" class="w-4 h-4 text-forest"></i>
+          <span><strong class="text-ink">AcervoVivo</strong> — Sistema de Curadoria e Localização Bibliográfica</span>
+        </div>
+        <button
+          type="button"
+          onclick="openStaffLoginModal()"
+          class="text-ink-muted hover:text-forest underline underline-offset-4 transition cursor-pointer"
+        >
+          Portal Administrativo do Bibliotecário
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- 2. LIBRARIAN RESTRICTED PORTAL (PROTECTED BY STAFF PIN)                 -->
+  <!-- ======================================================================= -->
+  <div id="librarian-portal-shell" class="hidden min-h-screen flex flex-col lg:flex-row">
+
+    <!-- Deep Forest Sidebar -->
+    <aside class="w-full lg:w-72 bg-forest text-ivory flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-gold/30 shrink-0">
+      <div class="p-5 sm:p-6 space-y-6">
+        <!-- Brand -->
+        <div class="flex items-center justify-between lg:justify-start gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-forest-light border border-gold/50 text-gold-light flex items-center justify-center shrink-0">
+              <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <span class="font-serif text-2xl font-bold text-ivory leading-none block">AcervoVivo</span>
+              <span class="text-[11px] font-mono uppercase tracking-wider text-gold-light">Painel da Equipe</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onclick="exitLibrarianPortal()"
+            class="lg:hidden px-3 py-1.5 rounded-xl bg-forest-light text-ivory/90 text-xs font-semibold border border-ivory/15 flex items-center gap-1.5 cursor-pointer"
+          >
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span>Sair</span>
+          </button>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-1 gap-2">
+          <button
+            type="button"
+            id="lib-nav-capture"
+            onclick="switchLibrarianTab('capture')"
+            class="lib-nav-btn flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left text-xs sm:text-sm font-semibold transition bg-gold text-ink shadow-sm cursor-pointer"
+          >
+            <i data-lucide="scan-line" class="w-4 h-4 shrink-0"></i>
+            <span>Capturar & Catalogar</span>
+          </button>
+
+          <button
+            type="button"
+            id="lib-nav-inventory"
+            onclick="switchLibrarianTab('inventory')"
+            class="lib-nav-btn flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light transition cursor-pointer"
+          >
+            <i data-lucide="books" class="w-4 h-4 shrink-0 hidden"></i>
+            <i data-lucide="library" class="w-4 h-4 shrink-0"></i>
+            <span>Acervo & Etiquetas</span>
+          </button>
+
+          <button
+            type="button"
+            id="lib-nav-sections"
+            onclick="switchLibrarianTab('sections')"
+            class="lib-nav-btn flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light transition cursor-pointer"
+          >
+            <i data-lucide="layers" class="w-4 h-4 shrink-0"></i>
+            <span>Gerenciar Seções</span>
+          </button>
+
+          <button
+            type="button"
+            id="lib-nav-wishlist"
+            onclick="switchLibrarianTab('wishlist')"
+            class="lib-nav-btn flex items-center justify-between gap-2 px-3.5 py-3 rounded-2xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light transition cursor-pointer"
+          >
+            <span class="flex items-center gap-3">
+              <i data-lucide="shopping-bag" class="w-4 h-4 shrink-0"></i>
+              <span>Lista de Compras</span>
+            </span>
+            <span id="lib-wishlist-badge" class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-terracotta text-ivory">
+              0
+            </span>
+          </button>
+
+          <button
+            type="button"
+            id="lib-nav-settings"
+            onclick="switchLibrarianTab('settings')"
+            class="lib-nav-btn flex items-center gap-3 px-3.5 py-3 rounded-2xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light transition cursor-pointer col-span-2 sm:col-span-4 lg:col-span-1"
+          >
+            <i data-lucide="qr-code" class="w-4 h-4 shrink-0"></i>
+            <span>Cartaz QR & Ajustes</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Bottom Return to Reader Portal -->
+      <div class="hidden lg:block p-6 border-t border-ivory/10 space-y-3">
+        <div class="rounded-2xl bg-forest-light/80 p-3.5 border border-ivory/10 text-xs space-y-1">
+          <p class="text-gold-light font-semibold">Resumo da Biblioteca</p>
+          <p id="lib-sidebar-summary" class="text-ivory/80">0 títulos • 0 exemplares</p>
+        </div>
+        <button
+          type="button"
+          onclick="exitLibrarianPortal()"
+          class="w-full py-2.5 px-4 rounded-xl bg-ivory/10 hover:bg-ivory/20 text-ivory text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+        >
+          <i data-lucide="arrow-left-circle" class="w-4 h-4 text-gold-light"></i>
+          <span>Voltar à Visão do Leitor</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Librarian Workspace -->
+    <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
+
+      <!-- =================================================================== -->
+      <!-- TAB 1: CAPTURE & CATALOG BOOKS (ISBN, COVER AI & MANUAL)            -->
+      <!-- =================================================================== -->
+      <section id="lib-tab-capture" class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-sand">
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider text-terracotta font-bold">Catalogação Inteligente</span>
+            <h2 class="font-serif text-3xl font-bold text-ink">Capturar & Cadastrar Livro</h2>
+          </div>
+          <p class="text-xs text-ink-muted max-w-sm">
+            Funciona para livros novos com código de barras e edições antigas sem ISBN através da foto da capa.
+          </p>
+        </div>
+
+        <!-- 3 Capture Shortcuts -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Method A: ISBN / Barcode -->
+          <div class="rounded-3xl bg-ivory border border-sand p-5 space-y-3 shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-forest-soft text-forest flex items-center justify-center">
+                <i data-lucide="barcode" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-serif text-lg font-bold text-ink leading-tight">1. Leitor ISBN</h3>
+                <p class="text-[11px] text-ink-muted">Câmera ou digitação do código</p>
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <input
+                type="text"
+                id="input-isbn-lookup"
+                placeholder="Digite o ISBN..."
+                class="flex-1 px-3 py-2 rounded-xl bg-parchment border border-sand text-xs font-mono focus:outline-none focus:border-forest"
+              />
+              <button
+                type="button"
+                onclick="lookupBookByISBN()"
+                class="px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-light text-ivory text-xs font-semibold transition cursor-pointer"
+              >
+                Buscar
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onclick="toggleBarcodeScanner()"
+              id="btn-toggle-scanner"
+              class="w-full py-2 px-3 rounded-xl bg-parchment hover:bg-sand/70 text-ink border border-sand text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              <i data-lucide="camera" class="w-4 h-4 text-terracotta"></i>
+              <span>Abrir Câmera de Código de Barras</span>
+            </button>
+
+            <div id="barcode-reader-wrapper" class="hidden rounded-2xl overflow-hidden border border-sand bg-ink">
+              <div id="barcode-reader" class="w-full"></div>
+            </div>
+          </div>
+
+          <!-- Method B: Photo of Cover + Vision AI (For Old Books without ISBN) -->
+          <div class="rounded-3xl bg-ivory border border-sand p-5 space-y-3 shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-terracotta-soft text-terracotta flex items-center justify-center">
+                <i data-lucide="image-plus" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-serif text-lg font-bold text-ink leading-tight">2. Foto da Capa (Sem ISBN)</h3>
+                <p class="text-[11px] text-ink-muted">IA lê título, autor e gera resumo</p>
+              </div>
+            </div>
+
+            <label class="w-full py-2.5 px-3 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer shadow-xs">
+              <i data-lucide="camera" class="w-4 h-4"></i>
+              <span>Fotografar ou Enviar Capa</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onchange="handleCoverImageUpload(event)"
+                class="hidden"
+              />
+            </label>
+
+            <div id="cover-preview-box" class="hidden flex items-center gap-3 p-2 rounded-xl bg-parchment border border-sand">
+              <img id="cover-preview-img" src="" alt="Prévia da capa" class="w-10 h-14 object-cover rounded-lg border border-sand" />
+              <div class="text-[11px] text-ink-muted leading-snug">
+                <span class="font-semibold text-forest block">Capa analisada!</span>
+                Confira os campos preenchidos abaixo.
+              </div>
+            </div>
+          </div>
+
+          <!-- Method C: Quick AI Enrichment by Title/Author -->
+          <div class="rounded-3xl bg-ivory border border-sand p-5 space-y-3 shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-gold-soft text-wood-dark flex items-center justify-center">
+                <i data-lucide="sparkles" class="w-5 h-5 text-gold"></i>
+              </div>
+              <div>
+                <h3 class="font-serif text-lg font-bold text-ink leading-tight">3. Resumo Rápido com IA</h3>
+                <p class="text-[11px] text-ink-muted">Preenche sinopse e indicação</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                id="quick-ai-title"
+                placeholder="Título..."
+                class="px-2.5 py-2 rounded-xl bg-parchment border border-sand text-xs focus:outline-none focus:border-forest"
+              />
+              <input
+                type="text"
+                id="quick-ai-author"
+                placeholder="Autor..."
+                class="px-2.5 py-2 rounded-xl bg-parchment border border-sand text-xs focus:outline-none focus:border-forest"
+              />
+            </div>
+
+            <button
+              type="button"
+              id="btn-quick-ai-fill"
+              onclick="enrichFormWithAI()"
+              class="w-full py-2 px-3 rounded-xl bg-gold-soft hover:bg-gold/30 text-wood-dark border border-gold/50 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              <i data-lucide="wand-2" class="w-4 h-4 text-terracotta"></i>
+              <span>Gerar Resumo & Indicação</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Complete Registration Form -->
+        <form id="form-register-book" onsubmit="handleSaveNewBook(event)" class="rounded-3xl bg-ivory border border-sand p-6 sm:p-8 shadow-sm space-y-5">
+          <input type="hidden" id="form-wishlist-id" value="" />
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-sand">
+            <h3 class="font-serif text-2xl font-bold text-forest">Ficha Bibliográfica & Localização</h3>
+            <label class="inline-flex items-center gap-2 text-xs font-medium text-ink-muted cursor-pointer">
+              <input type="checkbox" id="form-book-no-isbn" onchange="toggleNoIsbnCheckbox()" class="rounded accent-terracotta" />
+              <span>Livro antigo / edição sem código ISBN</span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div class="md:col-span-6">
+              <label class="block text-xs font-semibold text-ink mb-1">Título da Obra *</label>
+              <input
+                type="text"
+                id="form-book-title"
+                required
+                placeholder="Ex: A Fé Explicada"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+              />
+            </div>
+
+            <div class="md:col-span-6">
+              <label class="block text-xs font-semibold text-ink mb-1">Autor(a) *</label>
+              <input
+                type="text"
+                id="form-book-author"
+                required
+                placeholder="Ex: Leo J. Trese"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+              />
+            </div>
+
+            <div class="md:col-span-4">
+              <label class="block text-xs font-semibold text-ink mb-1">Seção Temática *</label>
+              <select
+                id="form-book-section"
+                onchange="handleSectionChangeInCaptureForm()"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+              >
+                <!-- Populated dynamically from state.sections -->
+              </select>
+            </div>
+
+            <div class="md:col-span-4">
+              <label class="block text-xs font-semibold text-ink mb-1">Código Interno da Lombada *</label>
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  id="form-book-code"
+                  required
+                  placeholder="ESP-001"
+                  class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand font-mono text-sm font-bold uppercase focus:border-forest focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onclick="generateNextInternalCode()"
+                  title="Gerar próximo código automaticamente"
+                  class="px-3 rounded-xl bg-parchment hover:bg-sand/70 border border-sand text-ink-muted hover:text-ink transition cursor-pointer"
+                >
+                  <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="md:col-span-4">
+              <label class="block text-xs font-semibold text-ink mb-1">Código ISBN (Opcional)</label>
+              <input
+                type="text"
+                id="form-book-isbn"
+                placeholder="978-85-..."
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand font-mono text-sm focus:border-forest focus:outline-none"
+              />
+            </div>
+
+            <!-- Estante, Prateleira Dinâmica, Exemplares & Etiqueta -->
+            <div class="md:col-span-3">
+              <label class="block text-xs font-semibold text-ink mb-1">Estante *</label>
+              <select
+                id="form-book-shelf"
+                onchange="syncTierOptionsForShelf('form-book-shelf', 'form-book-tier')"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+              >
+                <option value="Estante 1">Estante 1 (17 prat.)</option>
+                <option value="Estante 2">Estante 2 (18 prat.)</option>
+                <option value="Estante 3">Estante 3 (5 prat.)</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-3">
+              <label class="block text-xs font-semibold text-ink mb-1">Prateleira *</label>
+              <select
+                id="form-book-tier"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+              >
+                <!-- Populated dynamically based on Estante -->
+              </select>
+            </div>
+
+            <div class="md:col-span-3">
+              <label class="block text-xs font-semibold text-ink mb-1">Etiqueta na Prateleira</label>
+              <input
+                type="text"
+                id="form-book-shelf-tag"
+                list="shelf-tags-suggestions"
+                placeholder="Ex: Francisco Faus"
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+              />
+              <datalist id="shelf-tags-suggestions">
+                <option value="Alexandre Havard"></option>
+                <option value="Francisco Faus"></option>
+                <option value="Georges Chevrot"></option>
+                <option value="Luiz Cintra"></option>
+                <option value="Jacques Philippe"></option>
+                <option value="Rafael Llano Cifuentes"></option>
+                <option value="Scott Hahn"></option>
+                <option value="Literatura Grega"></option>
+              </datalist>
+            </div>
+
+            <div class="md:col-span-3">
+              <label class="block text-xs font-semibold text-ink mb-1">Qtd. Exemplares *</label>
+              <input
+                type="number"
+                id="form-book-qty"
+                min="1"
+                max="99"
+                value="1"
+                required
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm font-semibold"
+              />
+            </div>
+
+            <div class="md:col-span-6">
+              <label class="block text-xs font-semibold text-ink mb-1">Resumo da Obra *</label>
+              <textarea
+                id="form-book-summary"
+                rows="3"
+                required
+                placeholder="Sobre o que fala este livro..."
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm resize-none"
+              ></textarea>
+            </div>
+
+            <div class="md:col-span-6">
+              <label class="block text-xs font-semibold text-ink mb-1">Para quem este livro é indicado? *</label>
+              <textarea
+                id="form-book-recommendation"
+                rows="3"
+                required
+                placeholder="Ex: Se você está buscando aprofundar sua vida de oração ou compreender a doutrina..."
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm resize-none"
+              ></textarea>
+            </div>
+
+            <div class="md:col-span-12">
+              <label class="block text-xs font-semibold text-ink mb-1">Palavras-chave e temas de busca</label>
+              <input
+                type="text"
+                id="form-book-keywords"
+                placeholder="Ex: oração, teologia, virtudes, família, clássicos..."
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+              />
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onclick="resetCaptureForm()"
+              class="px-5 py-2.5 rounded-xl bg-parchment hover:bg-sand/70 text-ink border border-sand text-sm font-semibold transition cursor-pointer"
+            >
+              Limpar Campos
+            </button>
+            <button
+              type="submit"
+              class="px-7 py-2.5 rounded-xl bg-forest hover:bg-forest-light text-ivory text-sm font-semibold shadow-md transition flex items-center gap-2 cursor-pointer"
+            >
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-gold-light"></i>
+              <span>Salvar no Acervo</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 2: MANAGE INVENTORY, INLINE LOCATION & LABELS                   -->
+      <!-- =================================================================== -->
+      <section id="lib-tab-inventory" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-sand">
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider text-terracotta font-bold">Controle de Exemplares</span>
+            <h2 class="font-serif text-3xl font-bold text-ink">Acervo, Localização & Etiquetas</h2>
+          </div>
+          <p class="text-xs text-ink-muted">
+            Edite a seção, estante ou prateleira direto na linha do livro ou mova vários exemplares juntos.
+          </p>
+        </div>
+
+        <!-- Filter & Search Bar -->
+        <div class="rounded-3xl bg-ivory border border-sand p-4 sm:p-5 space-y-3 shadow-2xs">
+          <div class="flex flex-col md:flex-row gap-3">
+            <div class="relative flex-1">
+              <i data-lucide="search" class="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+              <input
+                type="text"
+                id="lib-inventory-search"
+                oninput="renderLibrarianInventory()"
+                placeholder="Filtrar por título, autor, código da lombada ou etiqueta..."
+                class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-parchment border border-sand text-sm focus:border-forest focus:outline-none"
+              />
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <select
+                id="lib-inventory-section-filter"
+                onchange="renderLibrarianInventory()"
+                class="px-3.5 py-2.5 rounded-xl bg-parchment border border-sand text-xs sm:text-sm font-medium text-ink focus:border-forest focus:outline-none"
+              >
+                <option value="ALL">Todas as Seções</option>
+              </select>
+
+              <select
+                id="lib-inventory-shelf-filter"
+                onchange="renderLibrarianInventory()"
+                class="px-3.5 py-2.5 rounded-xl bg-parchment border border-sand text-xs sm:text-sm font-medium text-ink focus:border-forest focus:outline-none"
+              >
+                <option value="ALL">Todas as Estantes</option>
+                <option value="Estante 1">Estante 1 (17 prat.)</option>
+                <option value="Estante 2">Estante 2 (18 prat.)</option>
+                <option value="Estante 3">Estante 3 (5 prat.)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-sand/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <button
+              type="button"
+              onclick="toggleSelectAllFilteredBooks()"
+              class="px-3 py-1.5 rounded-xl bg-parchment hover:bg-sand/50 text-ink border border-sand font-semibold inline-flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <i data-lucide="check-square" class="w-3.5 h-3.5 text-forest"></i>
+              <span id="select-all-filtered-label">Selecionar todos filtrados</span>
+            </button>
+            <span id="lib-inventory-count-label" class="text-ink-muted font-medium">0 obras</span>
+          </div>
+        </div>
+
+        <!-- Contextual Bulk Move Bar -->
+        <div
+          id="bulk-move-action-bar"
+          class="hidden sticky top-3 z-30 rounded-3xl bg-forest text-ivory border-2 border-gold p-4 sm:p-5 shadow-xl space-y-3"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded-lg bg-gold text-ink font-mono font-bold text-xs flex items-center justify-center" id="bulk-selected-count-badge">0</span>
+              <p class="font-serif text-lg font-bold text-ivory" id="bulk-selected-title">0 obras selecionadas</p>
+            </div>
+            <button type="button" onclick="clearBulkSelection()" class="text-xs font-semibold text-gold-light hover:text-ivory cursor-pointer">
+              Limpar seleção
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 items-end">
+            <div>
+              <label class="block text-[11px] font-semibold text-gold-light mb-1">Nova Seção</label>
+              <select id="bulk-target-section" class="w-full px-3 py-2 rounded-xl bg-ivory text-ink text-xs font-medium focus:outline-none">
+                <option value="KEEP">Manter seção atual</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-gold-light mb-1">Nova Estante</label>
+              <select
+                id="bulk-target-shelf"
+                onchange="syncBulkTargetTierOptions()"
+                class="w-full px-3 py-2 rounded-xl bg-ivory text-ink text-xs font-medium focus:outline-none"
+              >
+                <option value="KEEP">Manter estante atual</option>
+                <option value="Estante 1">Estante 1 (17 prat.)</option>
+                <option value="Estante 2">Estante 2 (18 prat.)</option>
+                <option value="Estante 3">Estante 3 (5 prat.)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-gold-light mb-1">Nova Prateleira</label>
+              <select id="bulk-target-tier" class="w-full px-3 py-2 rounded-xl bg-ivory text-ink text-xs font-medium focus:outline-none">
+                <option value="KEEP">Manter prateleira atual</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-gold-light mb-1">Etiqueta na Prateleira</label>
+              <input
+                type="text"
+                id="bulk-target-shelf-tag"
+                list="shelf-tags-suggestions"
+                placeholder="Manter atual..."
+                class="w-full px-3 py-2 rounded-xl bg-ivory text-ink text-xs font-medium focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onclick="executeBulkMoveBooks()"
+              class="w-full py-2 px-4 rounded-xl bg-terracotta hover:bg-terracotta-light text-ivory font-bold text-xs inline-flex items-center justify-center gap-1.5 transition cursor-pointer"
+            >
+              <i data-lucide="move-right" class="w-4 h-4"></i>
+              <span>Mover Selecionados</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Inventory Cards List -->
+        <div id="lib-inventory-list" class="space-y-3">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 3: MANAGE SECTIONS (CATEGORIES, SIGLAS & PALETTES)              -->
+      <!-- =================================================================== -->
+      <section id="lib-tab-sections" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-sand">
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider text-terracotta font-bold">Taxonomia do Acervo</span>
+            <h2 class="font-serif text-3xl font-bold text-ink">Gerenciar Seções da Biblioteca</h2>
+          </div>
+          <p class="text-xs text-ink-muted max-w-sm">
+            Crie ou personalize categorias temáticas, siglas de 3 letras, estantes padrão e cores das sobrecapas.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Left: Create / Edit Section Form -->
+          <form id="form-section-editor" onsubmit="handleSaveSection(event)" class="lg:col-span-5 rounded-3xl bg-ivory border border-sand p-6 space-y-4 shadow-sm">
+            <input type="hidden" id="sec-form-id" value="" />
+
+            <div class="flex items-center justify-between border-b border-sand pb-3">
+              <h3 id="sec-form-heading" class="font-serif text-2xl font-bold text-forest">Nova Seção Temática</h3>
+              <button
+                type="button"
+                id="sec-form-cancel-btn"
+                onclick="resetSectionForm()"
+                class="hidden text-xs font-semibold text-terracotta hover:underline cursor-pointer"
+              >
+                Cancelar edição
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-ink mb-1">Nome da Seção *</label>
+              <input
+                type="text"
+                id="sec-form-name"
+                required
+                oninput="handleSectionNameInput()"
+                placeholder="Ex: Biografias, Teologia, Poesia..."
+                class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+              />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-ink mb-1">Sigla (3 Letras) *</label>
+                <input
+                  type="text"
+                  id="sec-form-sigla"
+                  required
+                  maxlength="4"
+                  oninput="this.value = this.value.toUpperCase().replace(/[^A-Z]/g, ''); updateSectionLivePreview()"
+                  placeholder="BIO"
+                  class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand font-mono font-bold text-sm uppercase focus:border-forest focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-ink mb-1">Estante Padrão *</label>
+                <select
+                  id="sec-form-shelf"
+                  onchange="updateSectionLivePreview()"
+                  class="w-full px-3 py-2.5 rounded-xl bg-parchment border border-sand focus:border-forest focus:outline-none text-sm"
+                >
+                  <option value="Estante 1">Estante 1 (17 prat.)</option>
+                  <option value="Estante 2">Estante 2 (18 prat.)</option>
+                  <option value="Estante 3">Estante 3 (5 prat.)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-ink mb-1">Símbolo Tipográfico</label>
+                <select
+                  id="sec-form-glyph"
+                  onchange="updateSectionLivePreview()"
+                  class="w-full px-3 py-2.5 rounded-xl bg-parchment border border-sand text-sm focus:border-forest focus:outline-none"
+                >
+                  <option value="✦">✦ Estrela Clássica</option>
+                  <option value="✝">✝ Cruz / Espiritual</option>
+                  <option value="Ω">Ω Ômega / Clássicos</option>
+                  <option value="Φ">Φ Phi / Filosofia</option>
+                  <option value="❦">❦ Florão Literário</option>
+                  <option value="⚜">⚜ Flor-de-Lis / História</option>
+                  <option value="❖">❖ Losango Editorial</option>
+                  <option value="§">§ Parágrafo / Estudo</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-ink mb-1">Paleta Editorial</label>
+                <select
+                  id="sec-form-palette"
+                  onchange="updateSectionLivePreview()"
+                  class="w-full px-3 py-2.5 rounded-xl bg-parchment border border-sand text-sm focus:border-forest focus:outline-none"
+                >
+                  <!-- Populated dynamically from COVER_PALETTES -->
+                </select>
+              </div>
+            </div>
+
+            <!-- Live Book Jacket Preview -->
+            <div class="rounded-2xl bg-parchment border border-sand p-4 flex items-center gap-4">
+              <div
+                id="sec-live-jacket"
+                class="w-16 h-24 rounded-r-xl rounded-l-sm bg-forest text-ivory p-2.5 flex flex-col justify-between shrink-0 shadow-md relative"
+              >
+                <div class="book-spine-crease"></div>
+                <span id="sec-live-glyph" class="text-gold-light text-xs pl-2">✦</span>
+                <div class="pl-2">
+                  <span id="sec-live-sigla" class="font-mono text-[10px] font-bold block text-gold-light">SEC</span>
+                  <span id="sec-live-name" class="font-serif text-[11px] font-bold leading-tight line-clamp-2 block">Seção</span>
+                </div>
+              </div>
+              <div class="text-xs text-ink-muted space-y-1">
+                <p class="font-semibold text-ink">Prévia da Sobrecapa</p>
+                <p id="sec-live-meta">Etiquetas geradas como <strong>SEC-001</strong> • <strong>Estante 1</strong>.</p>
+              </div>
+            </div>
+
+            <div id="sec-update-codes-wrapper" class="hidden rounded-xl bg-gold-soft/70 border border-gold/40 p-3">
+              <label class="flex items-start gap-2 text-xs text-ink cursor-pointer">
+                <input type="checkbox" id="sec-update-existing-codes" checked class="mt-0.5 rounded accent-forest" />
+                <span>Atualizar automaticamente as siglas das lombadas dos livros desta seção.</span>
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              class="w-full py-2.5 px-5 rounded-xl bg-forest hover:bg-forest-light text-ivory font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            >
+              <i data-lucide="save" class="w-4 h-4 text-gold-light"></i>
+              <span id="sec-form-submit-label">Criar Seção</span>
+            </button>
+          </form>
+
+          <!-- Right: Existing Sections List -->
+          <div class="lg:col-span-7 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-serif text-2xl font-bold text-ink">Seções Ativas no Acervo</h3>
+              <span id="sections-total-count" class="text-xs font-mono text-ink-muted">0 seções</span>
+            </div>
+            <div id="lib-sections-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 4: ACQUISITION WISHLIST (READER REQUESTS)                       -->
+      <!-- =================================================================== -->
+      <section id="lib-tab-wishlist" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-sand">
+          <div>
+            <span class="text-xs font-mono uppercase tracking-wider text-terracotta font-bold">Demanda dos Leitores</span>
+            <h2 class="font-serif text-3xl font-bold text-ink">Lista de Compras Sugeridas</h2>
+          </div>
+          <p class="text-xs text-ink-muted">
+            Livros pesquisados pelos visitantes que ainda não existem na biblioteca.
+          </p>
+        </div>
+
+        <div id="lib-wishlist-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 5: ENTRANCE QR POSTER, SECURITY PIN & BACKUP                    -->
+      <!-- =================================================================== -->
+      <section id="lib-tab-settings" class="hidden space-y-6">
+        <div class="pb-4 border-b border-sand">
+          <span class="text-xs font-mono uppercase tracking-wider text-terracotta font-bold">Configuração & Divulgação</span>
+          <h2 class="font-serif text-3xl font-bold text-ink">Cartaz QR da Biblioteca & Segurança</h2>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Printable Entrance Poster -->
+          <div class="lg:col-span-7 rounded-3xl bg-ivory border border-sand p-6 space-y-4 shadow-sm">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-serif text-2xl font-bold text-forest">Cartaz QR para as Estantes</h3>
+                <p class="text-xs text-ink-muted">Imprima e fixe na entrada da biblioteca para consulta imediata no celular.</p>
+              </div>
+              <button
+                type="button"
+                onclick="printEntrancePoster()"
+                class="px-4 py-2.5 rounded-xl bg-forest hover:bg-forest-light text-ivory text-xs font-semibold flex items-center gap-2 transition cursor-pointer"
+              >
+                <i data-lucide="printer" class="w-4 h-4 text-gold-light"></i>
+                <span>Imprimir Cartaz</span>
+              </button>
+            </div>
+
+            <div class="rounded-2xl bg-parchment border-2 border-gold/60 p-6 text-center space-y-4 max-w-md mx-auto">
+              <span class="inline-block px-3 py-1 rounded-full bg-forest text-gold-light font-mono text-[11px] font-bold uppercase tracking-wider">
+                Consulta ao Acervo
+              </span>
+              <h4 class="font-serif text-3xl font-bold text-ink leading-tight">
+                Procurando um livro?
+              </h4>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Aponte a câmera do seu celular para o código abaixo para pesquisar títulos, ler resumos e descobrir a estante e a prateleira exata.
+              </p>
+              <div id="entrance-qr-box" class="bg-white p-3.5 rounded-2xl inline-block border border-sand shadow-xs"></div>
+              <p class="font-mono text-[11px] text-wood-dark font-semibold">
+                AcervoVivo • Estantes 1, 2 e 3
+              </p>
+            </div>
+          </div>
+
+          <!-- Security PIN & Backup -->
+          <div class="lg:col-span-5 space-y-5">
+            <div class="rounded-3xl bg-ivory border border-sand p-6 space-y-4 shadow-sm">
+              <h3 class="font-serif text-2xl font-bold text-forest">PIN de Acesso da Equipe</h3>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Alterar o código numérico ou alfanumérico exigido ao clicar em <strong>Acesso da Equipe</strong>.
+              </p>
+              <div class="flex gap-2">
+                <input
+                  type="text"
+                  id="settings-new-pin"
+                  placeholder="Novo PIN (ex: BIBLIO2026)"
+                  class="flex-1 px-3.5 py-2.5 rounded-xl bg-parchment border border-sand font-mono text-sm uppercase focus:outline-none focus:border-forest"
+                />
+                <button
+                  type="button"
+                  onclick="updateStaffPin()"
+                  class="px-4 py-2.5 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory text-xs font-semibold transition cursor-pointer"
+                >
+                  Salvar PIN
+                </button>
+              </div>
+              <p class="text-[11px] font-mono text-ink-muted">
+                PIN ativo atual: <strong id="settings-current-pin-display" class="text-ink">BIBLIO2026</strong>
+              </p>
+            </div>
+
+            <div class="rounded-3xl bg-ivory border border-sand p-6 space-y-4 shadow-sm">
+              <h3 class="font-serif text-2xl font-bold text-forest">Exportar Cópia do Acervo</h3>
+              <p class="text-xs text-ink-muted leading-relaxed">
+                Baixe uma planilha CSV ou arquivo JSON de segurança com todos os livros e seções cadastrados.
+              </p>
+              <div class="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onclick="exportCatalogCSV()"
+                  class="py-2.5 px-3 rounded-xl bg-parchment hover:bg-sand/70 text-ink border border-sand text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+                >
+                  <i data-lucide="file-spreadsheet" class="w-4 h-4 text-forest"></i>
+                  <span>Planilha CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onclick="exportCatalogJSON()"
+                  class="py-2.5 px-3 rounded-xl bg-parchment hover:bg-sand/70 text-ink border border-sand text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+                >
+                  <i data-lucide="download" class="w-4 h-4 text-terracotta"></i>
+                  <span>Backup JSON</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODALS                                                                  -->
+  <!-- ======================================================================= -->
+
+  <!-- Modal 1: Staff Authentication Gate -->
+  <div id="modal-staff-login" class="hidden fixed inset-0 z-50 bg-ink/65 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-ivory border-2 border-gold rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-5 relative">
+      <button
+        type="button"
+        onclick="closeModal('modal-staff-login')"
+        class="absolute top-4 right-4 p-2 rounded-xl text-ink-muted hover:text-ink hover:bg-parchment transition cursor-pointer"
+      >
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="text-center space-y-2">
+        <div class="w-12 h-12 rounded-2xl bg-forest text-gold-light mx-auto flex items-center justify-center shadow-sm">
+          <i data-lucide="key-round" class="w-6 h-6"></i>
+        </div>
+        <h3 class="font-serif text-2xl sm:text-3xl font-bold text-ink">Acesso da Equipe</h3>
+        <p class="text-xs text-ink-muted">
+          Área restrita aos voluntários e bibliotecários para catalogação e gestão das estantes.
+        </p>
+      </div>
+
+      <form onsubmit="handleStaffLoginSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1.5">PIN Institucional da Biblioteca</label>
+          <input
+            type="password"
+            id="staff-pin-input"
+            required
+            placeholder="Digite o código de acesso..."
+            class="w-full px-4 py-3 rounded-xl bg-parchment border border-sand font-mono text-center text-base tracking-widest uppercase focus:outline-none focus:border-forest"
+          />
+          <p class="text-[11px] text-ink-muted text-center mt-1.5">
+            PIN padrão inicial: <strong class="font-mono text-forest">BIBLIO2026</strong>
+          </p>
+        </div>
+
+        <button
+          type="submit"
+          class="w-full py-3 px-5 rounded-xl bg-forest hover:bg-forest-light text-ivory font-semibold text-sm transition flex items-center justify-center gap-2 shadow-md cursor-pointer"
+        >
+          <i data-lucide="unlock" class="w-4 h-4 text-gold-light"></i>
+          <span>Entrar no Painel do Bibliotecário</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Book Detail & Architectural Shelf Map (3 Real Bookcases) -->
+  <div id="modal-book-detail" class="hidden fixed inset-0 z-50 bg-ink/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-ivory border border-sand rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl my-auto">
+      <div class="bg-forest text-ivory px-6 py-4 flex items-center justify-between border-b border-gold/40">
+        <div class="flex items-center gap-2.5">
+          <span id="detail-spine-code" class="px-2.5 py-1 rounded-lg bg-gold text-ink font-mono text-xs font-bold">
+            ESP-001
+          </span>
+          <span id="detail-section-badge" class="text-xs font-medium text-gold-light">
+            Vida Espiritual
+          </span>
+        </div>
+        <button
+          type="button"
+          onclick="closeModal('modal-book-detail')"
+          class="p-1.5 rounded-xl text-ivory/80 hover:text-ivory hover:bg-forest-light transition cursor-pointer"
+        >
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 sm:p-8 space-y-6 max-h-[82vh] overflow-y-auto">
+        <div class="flex flex-col sm:flex-row gap-6 items-start">
+          <!-- Illustrated Jacket -->
+          <div id="detail-jacket-art" class="w-32 h-44 rounded-r-2xl rounded-l-md p-4 flex flex-col justify-between text-ivory shrink-0 shadow-lg relative mx-auto sm:mx-0">
+            <div class="book-spine-crease"></div>
+            <span id="detail-jacket-glyph" class="text-gold-light text-lg pl-2">✦</span>
+            <div class="pl-2 space-y-1">
+              <p id="detail-jacket-title" class="font-serif text-sm font-bold leading-snug line-clamp-3"></p>
+              <p id="detail-jacket-author" class="text-[10px] opacity-85 line-clamp-1"></p>
+            </div>
+          </div>
+
+          <!-- Metadata & Summary -->
+          <div class="flex-1 space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span id="detail-availability-pill" class="px-3 py-1 rounded-full text-xs font-semibold"></span>
+              <span id="detail-isbn-label" class="text-xs font-mono text-ink-muted"></span>
+            </div>
+
+            <h3 id="detail-book-title" class="font-serif text-2xl sm:text-3xl font-bold text-ink leading-tight"></h3>
+            <p id="detail-book-author" class="text-sm font-medium text-wood-dark"></p>
+
+            <p id="detail-book-summary" class="text-sm text-ink/90 leading-relaxed pt-1"></p>
+
+            <div class="rounded-2xl bg-gold-soft/80 border border-gold/40 p-3.5 space-y-1">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-wood-dark flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-terracotta"></i>
+                <span>Por que ler esta obra</span>
+              </span>
+              <p id="detail-book-recommendation" class="text-xs sm:text-sm text-ink leading-relaxed"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Architectural Wood & Brass Shelf Map (3 Real Bookcases: 17, 18, 5 shelves) -->
+        <div class="rounded-3xl bg-parchment border border-sand p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span class="text-[11px] font-mono uppercase tracking-wider text-terracotta font-bold">Localização Exata</span>
+              <h4 class="font-serif text-xl font-bold text-ink">Onde Encontrar nas Estantes</h4>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <span id="detail-exact-coords" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-forest text-gold-light font-mono text-xs font-bold">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-terracotta-light"></i>
+                <span>Estante 1 • Prateleira 1</span>
+              </span>
+              <span id="detail-shelf-tag-pill" class="hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-ivory text-ink border border-gold text-xs font-bold">
+                <i data-lucide="bookmark" class="w-3.5 h-3.5 text-terracotta"></i>
+                <span>Etiqueta: Francisco Faus</span>
+              </span>
+            </div>
+          </div>
+
+          <p id="detail-location-prose" class="text-xs sm:text-sm text-ink-muted leading-relaxed"></p>
+
+          <!-- 3 Real Estantes Selector Cards -->
+          <div id="architectural-estantes-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5"></div>
+
+          <!-- Shelves Grid Inside Selected Estante -->
+          <div id="architectural-shelves-diagram" class="rounded-2xl bg-wood-dark p-3.5 border-2 border-gold/60 shadow-inner"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Edit Book Details -->
+  <div id="modal-edit-book" class="hidden fixed inset-0 z-50 bg-ink/65 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-ivory border border-sand rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-5 my-auto">
+      <div class="flex items-center justify-between border-b border-sand pb-3">
+        <h3 class="font-serif text-2xl font-bold text-forest">Editar Ficha do Livro</h3>
+        <button type="button" onclick="closeModal('modal-edit-book')" class="p-1.5 rounded-xl text-ink-muted hover:text-ink cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleSaveEditBook(event)" class="space-y-4">
+        <input type="hidden" id="edit-book-id" />
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Título</label>
+            <input type="text" id="edit-book-title" required class="w-full px-3.5 py-2 rounded-xl bg-parchment border border-sand text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Autor</label>
+            <input type="text" id="edit-book-author" required class="w-full px-3.5 py-2 rounded-xl bg-parchment border border-sand text-sm" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Código</label>
+            <input type="text" id="edit-book-code" required class="w-full px-3 py-2 rounded-xl bg-parchment border border-sand font-mono font-bold text-sm uppercase" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Estante</label>
+            <select
+              id="edit-book-shelf"
+              onchange="syncTierOptionsForShelf('edit-book-shelf', 'edit-book-tier')"
+              class="w-full px-3 py-2 rounded-xl bg-parchment border border-sand text-sm"
+            >
+              <option value="Estante 1">Estante 1 (17 prat.)</option>
+              <option value="Estante 2">Estante 2 (18 prat.)</option>
+              <option value="Estante 3">Estante 3 (5 prat.)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Prateleira</label>
+            <select id="edit-book-tier" class="w-full px-3 py-2 rounded-xl bg-parchment border border-sand text-sm"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Seção</label>
+            <select id="edit-book-section" class="w-full px-3 py-2 rounded-xl bg-parchment border border-sand text-sm"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">Etiqueta na Prateleira</label>
+            <input
+              type="text"
+              id="edit-book-shelf-tag"
+              list="shelf-tags-suggestions"
+              placeholder="Ex: Francisco Faus"
+              class="w-full px-3 py-2 rounded-xl bg-parchment border border-sand text-sm"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-ink mb-1">ISBN</label>
+            <input type="text" id="edit-book-isbn" class="w-full px-3 py-2 rounded-xl bg-parchment border border-sand font-mono text-sm" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1">Resumo</label>
+          <textarea id="edit-book-summary" rows="2" required class="w-full px-3.5 py-2 rounded-xl bg-parchment border border-sand text-sm resize-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1">Indicação de Leitura</label>
+          <textarea id="edit-book-recommendation" rows="2" required class="w-full px-3.5 py-2 rounded-xl bg-parchment border border-sand text-sm resize-none"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-ink mb-1">Palavras-chave</label>
+          <input type="text" id="edit-book-keywords" class="w-full px-3.5 py-2 rounded-xl bg-parchment border border-sand text-sm" />
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" onclick="closeModal('modal-edit-book')" class="px-4 py-2 rounded-xl bg-parchment border border-sand text-xs font-semibold cursor-pointer">
+            Cancelar
+          </button>
+          <button type="submit" class="px-6 py-2 rounded-xl bg-forest text-ivory text-xs font-semibold cursor-pointer">
+            Salvar Alterações
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 4: Spine Label with QR Code -->
+  <div id="modal-spine-label" class="hidden fixed inset-0 z-50 bg-ink/65 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-ivory border border-sand rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-5 text-center">
+      <div class="flex items-center justify-between border-b border-sand pb-3">
+        <h3 class="font-serif text-xl font-bold text-forest">Etiqueta de Lombada</h3>
+        <button type="button" onclick="closeModal('modal-spine-label')" class="p-1.5 rounded-xl text-ink-muted hover:text-ink cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="single-label-card" class="rounded-2xl bg-white border-2 border-ink p-4 max-w-[230px] mx-auto space-y-2 shadow-xs">
+        <p class="font-mono text-[10px] uppercase tracking-widest text-ink-muted font-bold">AcervoVivo</p>
+        <div id="spine-label-qr" class="flex justify-center py-1"></div>
+        <p id="spine-label-code" class="font-mono text-xl font-bold text-ink tracking-wider">ESP-001</p>
+        <p id="spine-label-coords" class="font-mono text-[11px] font-bold text-terracotta">Estante 1 • Prat. 1</p>
+        <p id="spine-label-title" class="text-[11px] text-ink font-medium line-clamp-2 leading-tight"></p>
+      </div>
+
+      <button
+        type="button"
+        onclick="printSingleLabel()"
+        class="w-full py-2.5 px-4 rounded-xl bg-forest hover:bg-forest-light text-ivory text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+      >
+        <i data-lucide="printer" class="w-4 h-4 text-gold-light"></i>
+        <span>Imprimir Etiqueta</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal 5: Delete Section Safe Reassignment -->
+  <div id="modal-delete-section" class="hidden fixed inset-0 z-50 bg-ink/65 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-ivory border border-sand rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-sand pb-3">
+        <h3 class="font-serif text-2xl font-bold text-terracotta">Excluir Seção</h3>
+        <button type="button" onclick="closeModal('modal-delete-section')" class="p-1.5 rounded-xl text-ink-muted hover:text-ink cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <input type="hidden" id="delete-sec-id" />
+      <p id="delete-sec-message" class="text-sm text-ink leading-relaxed"></p>
+
+      <div id="delete-sec-transfer-box" class="hidden space-y-1.5">
+        <label class="block text-xs font-semibold text-ink">Transferir os livros desta seção para:</label>
+        <select id="delete-sec-target" class="w-full px-3.5 py-2.5 rounded-xl bg-parchment border border-sand text-sm"></select>
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeModal('modal-delete-section')" class="px-4 py-2 rounded-xl bg-parchment border border-sand text-xs font-semibold cursor-pointer">
+          Cancelar
+        </button>
+        <button type="button" onclick="confirmDeleteSection()" class="px-5 py-2 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory text-xs font-semibold cursor-pointer">
+          Confirmar Exclusão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden Printable Container -->
+  <div id="printable-area" class="hidden"></div>
+
+  <!-- ======================================================================= -->
+  <!-- APPLICATION LOGIC                                                       -->
+  <!-- ======================================================================= -->
+  <script>
+    // =========================================================================
+    // 1. REAL PHYSICAL ARCHITECTURE (3 BOOKCASES: 17, 18 AND 5 SHELVES)
+    // =========================================================================
+    const STORAGE_KEYS = {
+      BOOKS: 'acervovivo_real_books_v1',
+      SECTIONS: 'acervovivo_real_sections_v1',
+      WISHLIST: 'acervovivo_real_wishlist_v1',
+      PIN: 'acervovivo_staff_pin_v1'
+    };
+
+    const LIBRARY_ESTANTES = {
+      'Estante 1': {
+        codigo: 'E1',
+        titulo: 'Estante 1 — Vida Espiritual',
+        descricao: 'Móvel triplo de madeira escura junto à porta (17 prateleiras)',
+        prateleirasCount: 17,
+        cols: 3,
+        rows: 6,
+        hasBottomLeftBoxSlot: true
+      },
+      'Estante 2': {
+        codigo: 'E2',
+        titulo: 'Estante 2 — Filosofia, História e Educação',
+        descricao: 'Móvel triplo de madeira escura ao lado da mesa de estudo (18 prateleiras)',
+        prateleirasCount: 18,
+        cols: 3,
+        rows: 6,
+        hasBottomLeftBoxSlot: false
+      },
+      'Estante 3': {
+        codigo: 'E3',
+        titulo: 'Estante 3 — Literatura e Literatura Grega',
+        descricao: 'Estante embutida de madeira clara (5 prateleiras largas)',
+        prateleirasCount: 5,
+        cols: 1,
+        rows: 5,
+        hasBottomLeftBoxSlot: false
+      }
+    };
+
+    const ESTANTES_LIST = Object.keys(LIBRARY_ESTANTES);
+
+    function getPrateleirasForEstante(estanteName) {
+      const cfg = LIBRARY_ESTANTES[estanteName] || LIBRARY_ESTANTES['Estante 1'];
+      const list = [];
+      for (let i = 1; i <= cfg.prateleirasCount; i++) {
+        list.push(`Prateleira ${i}`);
+      }
+      return list;
+    }
+
+    const COVER_PALETTES = {
+      forest: {
+        label: 'Verde-Floresta & Ouro',
+        bg: 'linear-gradient(155deg, #17382A 0%, #0F261C 100%)',
+        accent: '#DFB872',
+        badgeBg: 'bg-forest-soft text-forest border-forest/20'
+      },
+      terracotta: {
+        label: 'Terracota Clássica',
+        bg: 'linear-gradient(155deg, #B85A34 0%, #863D1F 100%)',
+        accent: '#FBE6C2',
+        badgeBg: 'bg-terracotta-soft text-terracotta-dark border-terracotta/25'
+      },
+      burgundy: {
+        label: 'Bordô Monástico',
+        bg: 'linear-gradient(155deg, #682834 0%, #441720 100%)',
+        accent: '#E8C684',
+        badgeBg: 'bg-rose-50 text-rose-900 border-rose-200'
+      },
+      navy: {
+        label: 'Azul-Marinho Helênico',
+        bg: 'linear-gradient(155deg, #1E3A5F 0%, #13253E 100%)',
+        accent: '#DFB872',
+        badgeBg: 'bg-sky-50 text-sky-900 border-sky-200'
+      },
+      ochre: {
+        label: 'Ocre Pergaminho',
+        bg: 'linear-gradient(155deg, #9C6B28 0%, #6E4A19 100%)',
+        accent: '#FFF6E0',
+        badgeBg: 'bg-amber-50 text-amber-900 border-amber-200'
+      },
+      olive: {
+        label: 'Oliva Antiga',
+        bg: 'linear-gradient(155deg, #4B5836 0%, #323B23 100%)',
+        accent: '#E8D39E',
+        badgeBg: 'bg-lime-50 text-lime-900 border-lime-200'
+      }
+    };
+
+    const DEFAULT_SECTIONS = [
+      { id: 'sec-esp', nome: 'Vida Espiritual', sigla: 'ESP', estantePadrao: 'Estante 1', glyph: '✝', paletteKey: 'forest' },
+      { id: 'sec-fil', nome: 'Filosofia', sigla: 'FIL', estantePadrao: 'Estante 2', glyph: 'Φ', paletteKey: 'burgundy' },
+      { id: 'sec-his', nome: 'História', sigla: 'HIS', estantePadrao: 'Estante 2', glyph: '⚜', paletteKey: 'ochre' },
+      { id: 'sec-edu', nome: 'Educação', sigla: 'EDU', estantePadrao: 'Estante 2', glyph: '§', paletteKey: 'olive' },
+      { id: 'sec-lit', nome: 'Literatura', sigla: 'LIT', estantePadrao: 'Estante 3', glyph: '❦', paletteKey: 'terracotta' },
+      { id: 'sec-gre', nome: 'Literatura Grega', sigla: 'GRE', estantePadrao: 'Estante 3', glyph: 'Ω', paletteKey: 'navy' }
+    ];
+
+    const DEFAULT_BOOKS = [
+      {
+        id: 'book-1',
+        codigoInterno: 'ESP-001',
+        isbn: '978-85-7465-012-8',
+        titulo: 'A Fé Explicada',
+        autor: 'Leo J. Trese',
+        secao: 'Vida Espiritual',
+        estante: 'Estante 1',
+        prateleira: 'Prateleira 5',
+        etiquetaPrateleira: 'Leo J. Trese',
+        quantidadeTotal: 4,
+        quantidadeDisponivel: 4,
+        resumo: 'Exposição clara, acessível e profunda das verdades fundamentais da fé cristã, dos sacramentos e dos mandamentos.',
+        indicacao: 'Indicado para quem deseja compreender os fundamentos da fé com linguagem direta, exemplos do cotidiano e clareza doutrinal.',
+        palavrasChave: 'fé, catecismo, doutrina, sacramentos, vida espiritual'
+      },
+      {
+        id: 'book-2',
+        codigoInterno: 'ESP-002',
+        isbn: '978-85-7465-044-9',
+        titulo: 'O Amor nos Vê',
+        autor: 'Francisco Faus',
+        secao: 'Vida Espiritual',
+        estante: 'Estante 1',
+        prateleira: 'Prateleira 5',
+        etiquetaPrateleira: 'Francisco Faus',
+        quantidadeTotal: 2,
+        quantidadeDisponivel: 2,
+        resumo: 'Meditações sobre o olhar amoroso de Deus na vida ordinária, no trabalho, nas alegrias e nas provações diárias.',
+        indicacao: 'Ideal para quem busca serenidade interior, confiança em Deus e sentido sobrenatural nas tarefas do dia a dia.',
+        palavrasChave: 'oração, confiança, paz interior, espiritualidade, cotidiano'
+      },
+      {
+        id: 'book-3',
+        codigoInterno: 'ESP-003',
+        isbn: '978-85-7465-110-1',
+        titulo: 'Sulco',
+        autor: 'Josemaría Escrivá',
+        secao: 'Vida Espiritual',
+        estante: 'Estante 1',
+        prateleira: 'Prateleira 3',
+        etiquetaPrateleira: 'Josemaría Escrivá',
+        quantidadeTotal: 3,
+        quantidadeDisponivel: 2,
+        resumo: 'Conjunto de pontos breves de meditação voltados ao cultivo das virtudes humanas e cristãs no meio do mundo.',
+        indicacao: 'Recomendado para leitura pausada e meditação diária sobre caráter, amizade, trabalho bem feito e vida de oração.',
+        palavrasChave: 'virtudes, meditação, caráter, trabalho, oração'
+      },
+      {
+        id: 'book-4',
+        codigoInterno: 'EDU-001',
+        isbn: '978-85-7465-205-4',
+        titulo: 'Educar sem Medo',
+        autor: 'Meg Meeker',
+        secao: 'Educação',
+        estante: 'Estante 2',
+        prateleira: 'Prateleira 11',
+        etiquetaPrateleira: 'Educação Familiar',
+        quantidadeTotal: 2,
+        quantidadeDisponivel: 2,
+        resumo: 'Orientações práticas para pais e educadores enfrentarem a ansiedade moderna e formarem filhos seguros e resilientes.',
+        indicacao: 'Para pais, professores e educadores que buscam equilíbrio, autoridade afetuosa e segurança na formação dos jovens.',
+        palavrasChave: 'filhos, família, pais, educação, formação'
+      },
+      {
+        id: 'book-5',
+        codigoInterno: 'HIS-001',
+        isbn: '978-85-7302-880-5',
+        titulo: '1808',
+        autor: 'Laurentino Gomes',
+        secao: 'História',
+        estante: 'Estante 2',
+        prateleira: 'Prateleira 3',
+        etiquetaPrateleira: 'História do Brasil',
+        quantidadeTotal: 1,
+        quantidadeDisponivel: 1,
+        resumo: 'Relato jornalístico e histórico da transferência da corte portuguesa para o Brasil e suas consequências políticas e culturais.',
+        indicacao: 'Excelente porta de entrada para compreender a formação do Brasil moderno com narrativa envolvente e rigor documental.',
+        palavrasChave: 'brasil, dom joão, história, império, século xix'
+      },
+      {
+        id: 'book-6',
+        codigoInterno: 'GRE-001',
+        isbn: '978-85-7110-415-0',
+        titulo: 'A Trilogia Tebana: Édipo Rei, Édipo em Colono, Antígona',
+        autor: 'Sófocles',
+        secao: 'Literatura Grega',
+        estante: 'Estante 3',
+        prateleira: 'Prateleira 2',
+        etiquetaPrateleira: 'Literatura Grega',
+        quantidadeTotal: 1,
+        quantidadeDisponivel: 1,
+        resumo: 'As três grandes tragédias gregas de Sófocles sobre destino, justiça, consciência moral e dignidade humana.',
+        indicacao: 'Leitura essencial para conhecer o teatro clássico grego e refletir sobre o conflito entre lei humana e lei moral.',
+        palavrasChave: 'grécia antiga, tragédia, sófocles, antígona, clássicos'
+      },
+      {
+        id: 'book-7',
+        codigoInterno: 'LIT-001',
+        isbn: 'Sem ISBN / Edição Antiga',
+        titulo: 'Grande Sertão: Veredas',
+        autor: 'João Guimarães Rosa',
+        secao: 'Literatura',
+        estante: 'Estante 3',
+        prateleira: 'Prateleira 2',
+        etiquetaPrateleira: 'Clássicos Brasileiros',
+        quantidadeTotal: 1,
+        quantidadeDisponivel: 1,
+        resumo: 'A travessia épica de Riobaldo pelo sertão brasileiro, explorando o bem, o mal, a amizade e a invenção poética da língua.',
+        indicacao: 'Para leitores que desejam mergulhar na obra-prima da literatura brasileira com profundidade filosófica e poética.',
+        palavrasChave: 'sertão, guimarães rosa, romance, clássicos brasileiros'
+      },
+      {
+        id: 'book-8',
+        codigoInterno: 'FIL-001',
+        isbn: '978-85-359-1484-9',
+        titulo: 'Ética a Nicômaco',
+        autor: 'Aristóteles',
+        secao: 'Filosofia',
+        estante: 'Estante 2',
+        prateleira: 'Prateleira 1',
+        etiquetaPrateleira: 'Filosofia Clássica',
+        quantidadeTotal: 2,
+        quantidadeDisponivel: 1,
+        resumo: 'Investigação clássica sobre a felicidade humana (eudaimonia), a prudência, a justiça e a prática das virtudes morais.',
+        indicacao: 'Indicado para quem busca uma base sólida em filosofia moral e deseja entender o papel das virtudes na vida boa.',
+        palavrasChave: 'aristóteles, ética, virtude, felicidade, filosofia'
+      }
+    ];
+
+    const DEFAULT_WISHLIST = [
+      {
+        id: 'wish-1',
+        titulo: 'O Temperamento do Caráter',
+        autor: 'Alexandre Havard',
+        solicitacoes: 4,
+        data: '18/11/2026'
+      },
+      {
+        id: 'wish-2',
+        titulo: 'Confissões',
+        autor: 'Santo Agostinho',
+        solicitacoes: 3,
+        data: '15/11/2026'
+      }
+    ];
+
+    const state = {
+      books: [],
+      sections: [],
+      wishlist: [],
+      staffPin: 'BIBLIO2026',
+      activeSectionFilter: 'ALL',
+      aiRecommendedIds: null,
+      selectedBookIds: [],
+      html5QrCode: null,
+      scannerActive: false
+    };
+
+    // =========================================================================
+    // 2. INITIALIZATION & PERSISTENCE
+    // =========================================================================
+    function loadState() {
+      try {
+        const savedSections = localStorage.getItem(STORAGE_KEYS.SECTIONS);
+        state.sections = savedSections ? JSON.parse(savedSections) : structuredClone(DEFAULT_SECTIONS);
+
+        const savedBooks = localStorage.getItem(STORAGE_KEYS.BOOKS);
+        state.books = savedBooks ? JSON.parse(savedBooks) : structuredClone(DEFAULT_BOOKS);
+
+        const savedWish = localStorage.getItem(STORAGE_KEYS.WISHLIST);
+        state.wishlist = savedWish ? JSON.parse(savedWish) : structuredClone(DEFAULT_WISHLIST);
+
+        const savedPin = localStorage.getItem(STORAGE_KEYS.PIN);
+        if (savedPin) state.staffPin = savedPin;
+      } catch (err) {
+        state.sections = structuredClone(DEFAULT_SECTIONS);
+        state.books = structuredClone(DEFAULT_BOOKS);
+        state.wishlist = structuredClone(DEFAULT_WISHLIST);
+      }
+    }
+
+    function persistState() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.BOOKS, JSON.stringify(state.books));
+        localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(state.sections));
+        localStorage.setItem(STORAGE_KEYS.WISHLIST, JSON.stringify(state.wishlist));
+        localStorage.setItem(STORAGE_KEYS.PIN, state.staffPin);
+      } catch (err) {
+        console.warn('Erro ao salvar no navegador:', err);
+      }
+    }
+
+    function normalizeText(str) {
+      return (str || '')
+        .toString()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+    }
+
+    function escapeHtml(str) {
+      return (str || '')
+        .toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getSectionConfig(sectionName) {
+      return (
+        state.sections.find((s) => s.nome === sectionName) ||
+        state.sections[0] || {
+          nome: sectionName || 'Geral',
+          sigla: 'GER',
+          estantePadrao: 'Estante 1',
+          glyph: '✦',
+          paletteKey: 'forest'
+        }
+      );
+    }
+
+    function getPaletteForSection(sectionName) {
+      const sec = getSectionConfig(sectionName);
+      return COVER_PALETTES[sec.paletteKey] || COVER_PALETTES.forest;
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const styles = {
+        success: 'bg-forest text-ivory border-gold',
+        warning: 'bg-terracotta text-ivory border-gold-light',
+        info: 'bg-ink text-ivory border-sand/40'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto rounded-2xl border px-4 py-3 text-xs sm:text-sm font-medium shadow-xl flex items-center justify-between gap-3 transition-all ${styles[type] || styles.info}`;
+      toast.innerHTML = `
+        <span>${escapeHtml(message)}</span>
+        <button type="button" onclick="this.parentElement.remove()" class="opacity-75 hover:opacity-100 cursor-pointer">✕</button>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 4200);
+    }
+
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    }
+
+    function syncTierOptionsForShelf(shelfSelectId, tierSelectId, preferredTier = null) {
+      const shelfEl = document.getElementById(shelfSelectId);
+      const tierEl = document.getElementById(tierSelectId);
+      if (!shelfEl || !tierEl) return;
+
+      const tiers = getPrateleirasForEstante(shelfEl.value);
+      tierEl.innerHTML = tiers
+        .map((t, idx) => `<option value="${t}">P${idx + 1} · ${t}</option>`)
+        .join('');
+
+      if (preferredTier && tiers.includes(preferredTier)) {
+        tierEl.value = preferredTier;
+      }
+    }
+
+    function populateSectionSelects() {
+      const optionsHtml = state.sections
+        .map((s) => `<option value="${escapeHtml(s.nome)}">${escapeHtml(s.sigla)} — ${escapeHtml(s.nome)}</option>`)
+        .join('');
+
+      const formSec = document.getElementById('form-book-section');
+      if (formSec) {
+        const prev = formSec.value;
+        formSec.innerHTML = optionsHtml;
+        if (state.sections.some((s) => s.nome === prev)) formSec.value = prev;
+      }
+
+      const editSec = document.getElementById('edit-book-section');
+      if (editSec) {
+        editSec.innerHTML = optionsHtml;
+      }
+
+      const invFilter = document.getElementById('lib-inventory-section-filter');
+      if (invFilter) {
+        const prev = invFilter.value;
+        invFilter.innerHTML = `<option value="ALL">Todas as Seções</option>` + optionsHtml;
+        if (prev === 'ALL' || state.sections.some((s) => s.nome === prev)) invFilter.value = prev;
+      }
+
+      const bulkSec = document.getElementById('bulk-target-section');
+      if (bulkSec) {
+        bulkSec.innerHTML = `<option value="KEEP">Manter seção atual</option>` + optionsHtml;
+      }
+    }
+
+    function refreshAllViews() {
+      populateSectionSelects();
+      renderReaderSectionPills();
+      renderReaderCatalog();
+      renderLibrarianInventory();
+      renderSectionsManager();
+      renderLibrarianWishlist();
+      updateStatsSummary();
+      lucide.createIcons();
+    }
+
+    function updateStatsSummary() {
+      const totalTitles = state.books.length;
+      const totalCopies = state.books.reduce((acc, b) => acc + (b.quantidadeTotal || 1), 0);
+
+      const readerStats = document.getElementById('reader-header-stats');
+      if (readerStats) {
+        readerStats.textContent = `${totalTitles} obras • ${totalCopies} exemplares`;
+      }
+
+      const libStats = document.getElementById('lib-sidebar-summary');
+      if (libStats) {
+        libStats.textContent = `${totalTitles} títulos • ${totalCopies} exemplares`;
+      }
+
+      const wishBadge = document.getElementById('lib-wishlist-badge');
+      if (wishBadge) {
+        wishBadge.textContent = state.wishlist.length;
+      }
+    }
+
+    // =========================================================================
+    // 3. READER PORTAL: SEARCH, AI ADVISOR, BOOK CARDS & 3-BOOKCASE MAP
+    // =========================================================================
+    function renderReaderSectionPills() {
+      const container = document.getElementById('reader-section-pills');
+      if (!container) return;
+
+      const pills = [
+        { nome: 'ALL', label: 'Todo o Acervo', count: state.books.length },
+        ...state.sections.map((s) => ({
+          nome: s.nome,
+          label: s.nome,
+          count: state.books.filter((b) => b.secao === s.nome).length
+        }))
+      ];
+
+      container.innerHTML = pills
+        .map((p) => {
+          const active = state.activeSectionFilter === p.nome;
+          const btnClass = active
+            ? 'bg-forest text-ivory border-forest shadow-xs'
+            : 'bg-ivory hover:bg-gold-soft/60 text-ink border-sand';
+          return `
+            <button
+              type="button"
+              onclick="selectReaderSectionFilter('${escapeHtml(p.nome)}')"
+              class="px-3.5 py-2 rounded-xl border text-xs sm:text-sm font-semibold whitespace-nowrap inline-flex items-center gap-2 transition cursor-pointer ${btnClass}"
+            >
+              <span>${escapeHtml(p.label)}</span>
+              <span class="px-1.5 py-0.5 rounded-md text-[11px] font-mono ${active ? 'bg-forest-light text-gold-light' : 'bg-parchment text-ink-muted'}">
+                ${p.count}
+              </span>
+            </button>
+          `;
+        })
+        .join('');
+    }
+
+    window.selectReaderSectionFilter = function (sectionName) {
+      state.activeSectionFilter = sectionName;
+      renderReaderSectionPills();
+      renderReaderCatalog();
+    };
+
+    window.clearReaderSearch = function () {
+      const input = document.getElementById('reader-search-input');
+      if (input) input.value = '';
+      renderReaderCatalog();
+    };
+
+    window.renderReaderCatalog = function () {
+      const grid = document.getElementById('reader-books-grid');
+      const emptyState = document.getElementById('reader-empty-state');
+      const counter = document.getElementById('reader-results-counter');
+      const searchInput = document.getElementById('reader-search-input');
+      const clearBtn = document.getElementById('reader-clear-search-btn');
+      const onlyAvail = document.getElementById('reader-only-available')?.checked;
+
+      if (!grid) return;
+
+      const rawQuery = searchInput?.value || '';
+      const q = normalizeText(rawQuery);
+      if (clearBtn) {
+        clearBtn.classList.toggle('hidden', rawQuery.trim().length === 0);
+      }
+
+      let filtered = state.books.filter((book) => {
+        if (state.activeSectionFilter !== 'ALL' && book.secao !== state.activeSectionFilter) {
+          return false;
+        }
+        if (onlyAvail && (book.quantidadeDisponivel || 0) <= 0) {
+          return false;
+        }
+        if (Array.isArray(state.aiRecommendedIds) && !state.aiRecommendedIds.includes(book.id)) {
+          return false;
+        }
+        if (!q) return true;
+
+        const searchable = normalizeText(
+          `${book.titulo} ${book.autor} ${book.codigoInterno} ${book.secao} ${book.estante} ${book.prateleira} ${book.etiquetaPrateleira || ''} ${book.resumo} ${book.indicacao} ${book.palavrasChave || ''}`
+        );
+        return searchable.includes(q);
+      });
+
+      if (Array.isArray(state.aiRecommendedIds)) {
+        filtered.sort((a, b) => state.aiRecommendedIds.indexOf(a.id) - state.aiRecommendedIds.indexOf(b.id));
+      }
+
+      if (counter) {
+        counter.textContent = `${filtered.length} ${filtered.length === 1 ? 'obra' : 'obras'}`;
+      }
+
+      if (filtered.length === 0) {
+        grid.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        const emptyTerm = document.getElementById('empty-search-term');
+        const wishTitle = document.getElementById('wish-title-input');
+        if (emptyTerm) emptyTerm.textContent = rawQuery.trim() ? `"${rawQuery.trim()}"` : 'este filtro';
+        if (wishTitle && rawQuery.trim()) wishTitle.value = rawQuery.trim();
+        lucide.createIcons();
+        return;
+      }
+
+      grid.classList.remove('hidden');
+      emptyState.classList.add('hidden');
+
+      grid.innerHTML = filtered
+        .map((book) => {
+          const secCfg = getSectionConfig(book.secao);
+          const palette = getPaletteForSection(book.secao);
+          const avail = book.quantidadeDisponivel || 0;
+          const total = book.quantidadeTotal || 1;
+          const isAvail = avail > 0;
+
+          return `
+            <article
+              onclick="openBookDetailModal('${escapeHtml(book.id)}')"
+              class="group rounded-3xl bg-ivory border border-sand hover:border-gold p-5 flex flex-col justify-between gap-4 shadow-xs hover:shadow-xl transition cursor-pointer"
+            >
+              <div class="space-y-4">
+                <!-- Top Row: Book Jacket + Location Pill -->
+                <div class="flex items-start gap-4">
+                  <div
+                    class="book-jacket w-20 h-28 rounded-r-xl rounded-l-sm p-2.5 flex flex-col justify-between text-ivory shrink-0"
+                    style="background: ${palette.bg};"
+                  >
+                    <div class="book-spine-crease"></div>
+                    <div class="pl-1.5 flex items-center justify-between">
+                      <span style="color: ${palette.accent};" class="text-xs">${escapeHtml(secCfg.glyph)}</span>
+                      <span class="font-mono text-[9px] font-bold opacity-85">${escapeHtml(book.codigoInterno)}</span>
+                    </div>
+                    <div class="pl-1.5">
+                      <p class="font-serif text-[11px] font-bold leading-tight line-clamp-3">
+                        ${escapeHtml(book.titulo)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex-1 min-w-0 space-y-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${palette.badgeBg}">
+                      ${escapeHtml(book.secao)}
+                    </span>
+
+                    <div class="rounded-xl bg-parchment border border-sand px-2.5 py-1.5 space-y-0.5">
+                      <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-forest">
+                        <i data-lucide="map-pin" class="w-3 h-3 text-terracotta shrink-0"></i>
+                        <span>${escapeHtml(book.estante)} • ${escapeHtml(book.prateleira)}</span>
+                      </div>
+                      ${
+                        book.etiquetaPrateleira
+                          ? `<p class="text-[11px] text-wood-dark font-medium truncate">Etiqueta: ${escapeHtml(book.etiquetaPrateleira)}</p>`
+                          : ''
+                      }
+                    </div>
+
+                    <div class="flex items-center gap-1.5 text-[11px] font-semibold ${isAvail ? 'text-forest' : 'text-terracotta'}">
+                      <span class="w-2 h-2 rounded-full ${isAvail ? 'bg-forest' : 'bg-terracotta'}"></span>
+                      <span>${isAvail ? `Disponível (${avail}/${total})` : 'Emprestado no momento'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Title, Author & Reader Hook -->
+                <div class="space-y-1.5">
+                  <h3 class="font-serif text-xl font-bold text-ink group-hover:text-forest leading-snug line-clamp-2 transition">
+                    ${escapeHtml(book.titulo)}
+                  </h3>
+                  <p class="text-xs font-medium text-wood-dark">
+                    ${escapeHtml(book.autor)}
+                  </p>
+                  <p class="text-xs text-ink-muted line-clamp-2 leading-relaxed pt-0.5">
+                    ${escapeHtml(book.indicacao || book.resumo)}
+                  </p>
+                </div>
+              </div>
+
+              <div class="pt-3 border-t border-sand/80 flex items-center justify-between text-xs font-semibold text-forest">
+                <span>Ver resumo e mapa da estante</span>
+                <i data-lucide="arrow-up-right" class="w-4 h-4 text-terracotta group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition"></i>
+              </div>
+            </article>
+          `;
+        })
+        .join('');
+
+      lucide.createIcons();
+    };
+
+    window.triggerQuickNeed = function (promptText) {
+      const input = document.getElementById('ai-need-input');
+      if (input) input.value = promptText;
+      runNeedBasedRecommendation();
+    };
+
+    window.runNeedBasedRecommendation = function () {
+      const query = document.getElementById('ai-need-input')?.value.trim() || '';
+      if (!query) {
+        showToast('Descreva brevemente o assunto ou o que você está procurando ler.', 'warning');
+        return;
+      }
+
+      const terms = normalizeText(query)
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !['para', 'sobre', 'como', 'quero', 'preciso', 'uma', 'uns', 'das', 'dos', 'que', 'com'].includes(w));
+
+      const scored = state.books.map((book) => {
+        const hay = normalizeText(
+          `${book.titulo} ${book.autor} ${book.secao} ${book.resumo} ${book.indicacao} ${book.palavrasChave || ''}`
+        );
+        let score = 0;
+        terms.forEach((t) => {
+          if (hay.includes(t)) score += 3;
+        });
+        if (normalizeText(book.secao).includes(normalizeText(query))) score += 5;
+        return { book, score };
+      });
+
+      const matches = scored.filter((item) => item.score > 0).sort((a, b) => b.score - a.score);
+      const banner = document.getElementById('ai-recommendation-banner');
+      const textEl = document.getElementById('ai-recommendation-text');
+      const clearBtn = document.getElementById('btn-clear-ai-recommend');
+
+      if (matches.length === 0) {
+        state.aiRecommendedIds = null;
+        banner.classList.remove('hidden');
+        clearBtn.classList.remove('hidden');
+        textEl.textContent = `Não encontramos uma correspondência direta para "${query}". Explore as seções abaixo ou solicite um novo título.`;
+        renderReaderCatalog();
+        return;
+      }
+
+      state.activeSectionFilter = 'ALL';
+      state.aiRecommendedIds = matches.slice(0, 6).map((m) => m.book.id);
+      renderReaderSectionPills();
+      renderReaderCatalog();
+
+      banner.classList.remove('hidden');
+      clearBtn.classList.remove('hidden');
+      const topBook = matches[0].book;
+      textEl.textContent = `Encontramos ${matches.length} ${matches.length === 1 ? 'obra indicada' : 'obras indicadas'}. Destaque para "${topBook.titulo}" (${topBook.estante}, ${topBook.prateleira}).`;
+    };
+
+    window.clearNeedRecommendation = function () {
+      state.aiRecommendedIds = null;
+      const input = document.getElementById('ai-need-input');
+      const banner = document.getElementById('ai-recommendation-banner');
+      const clearBtn = document.getElementById('btn-clear-ai-recommend');
+      if (input) input.value = '';
+      if (banner) banner.classList.add('hidden');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      renderReaderCatalog();
+    };
+
+    window.submitReaderBookRequest = function () {
+      const titleInput = document.getElementById('wish-title-input');
+      const authorInput = document.getElementById('wish-author-input');
+      const titulo = titleInput?.value.trim();
+      const autor = authorInput?.value.trim() || 'Autor não informado';
+
+      if (!titulo) {
+        showToast('Informe o título do livro que deseja solicitar.', 'warning');
+        return;
+      }
+
+      const existing = state.wishlist.find((w) => normalizeText(w.titulo) === normalizeText(titulo));
+      if (existing) {
+        existing.solicitacoes += 1;
+      } else {
+        state.wishlist.unshift({
+          id: `wish-${Date.now()}`,
+          titulo,
+          autor,
+          solicitacoes: 1,
+          data: new Date().toLocaleDateString('pt-BR')
+        });
+      }
+
+      persistState();
+      updateStatsSummary();
+      if (titleInput) titleInput.value = '';
+      if (authorInput) authorInput.value = '';
+      showToast(`Pedido registrado! "${titulo}" foi enviado para a lista de compras da equipe.`, 'success');
+    };
+
+    // Architectural Modal with 3 Real Bookcases (17, 18, 5 shelves)
+    window.openBookDetailModal = function (bookId) {
+      const book = state.books.find((b) => b.id === bookId);
+      if (!book) return;
+
+      const secCfg = getSectionConfig(book.secao);
+      const palette = getPaletteForSection(book.secao);
+      const avail = book.quantidadeDisponivel || 0;
+      const total = book.quantidadeTotal || 1;
+
+      document.getElementById('detail-spine-code').textContent = book.codigoInterno;
+      document.getElementById('detail-section-badge').textContent = book.secao;
+
+      const jacket = document.getElementById('detail-jacket-art');
+      jacket.style.background = palette.bg;
+      document.getElementById('detail-jacket-glyph').textContent = secCfg.glyph;
+      document.getElementById('detail-jacket-title').textContent = book.titulo;
+      document.getElementById('detail-jacket-author').textContent = book.autor;
+
+      const availPill = document.getElementById('detail-availability-pill');
+      if (avail > 0) {
+        availPill.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-forest-soft text-forest border border-forest/20';
+        availPill.textContent = `Disponível na estante (${avail} de ${total} ${total === 1 ? 'exemplar' : 'exemplares'})`;
+      } else {
+        availPill.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-terracotta-soft text-terracotta border border-terracotta/25';
+        availPill.textContent = `Todos os exemplares emprestados (0/${total})`;
+      }
+
+      document.getElementById('detail-isbn-label').textContent = `ISBN: ${book.isbn || 'Sem ISBN'}`;
+      document.getElementById('detail-book-title').textContent = book.titulo;
+      document.getElementById('detail-book-author').textContent = `Por ${book.autor}`;
+      document.getElementById('detail-book-summary').textContent = book.resumo;
+      document.getElementById('detail-book-recommendation').textContent = book.indicacao;
+
+      document.getElementById('detail-exact-coords').innerHTML = `
+        <i data-lucide="map-pin" class="w-3.5 h-3.5 text-terracotta-light"></i>
+        <span>${escapeHtml(book.estante)} • ${escapeHtml(book.prateleira)}</span>
+      `;
+
+      const tagPill = document.getElementById('detail-shelf-tag-pill');
+      if (book.etiquetaPrateleira) {
+        tagPill.classList.remove('hidden');
+        tagPill.innerHTML = `
+          <i data-lucide="bookmark" class="w-3.5 h-3.5 text-terracotta"></i>
+          <span>Etiqueta na madeira: ${escapeHtml(book.etiquetaPrateleira)}</span>
+        `;
+      } else {
+        tagPill.classList.add('hidden');
+      }
+
+      const estCfg = LIBRARY_ESTANTES[book.estante] || LIBRARY_ESTANTES['Estante 1'];
+      const tagInstruction = book.etiquetaPrateleira
+        ? ` Procure pela etiqueta branca <strong>"${escapeHtml(book.etiquetaPrateleira)}"</strong> na borda da prateleira.`
+        : '';
+      document.getElementById('detail-location-prose').innerHTML = `
+        Dirija-se à <strong>${escapeHtml(estCfg.titulo)}</strong> (${escapeHtml(estCfg.descricao)}) e localize a <strong>${escapeHtml(book.prateleira)}</strong> (lombada <strong>${escapeHtml(book.codigoInterno)}</strong>).${tagInstruction}
+      `;
+
+      // Render 3 Bookcase Cards
+      const estantesGrid = document.getElementById('architectural-estantes-grid');
+      estantesGrid.innerHTML = ESTANTES_LIST.map((estName) => {
+        const cfg = LIBRARY_ESTANTES[estName];
+        const isCurrent = book.estante === estName;
+        return `
+          <div class="rounded-2xl p-3 border text-left transition ${
+            isCurrent
+              ? 'bg-forest text-ivory border-gold shadow-sm'
+              : 'bg-ivory text-ink-muted border-sand opacity-75'
+          }">
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-xs font-bold ${isCurrent ? 'text-gold-light' : 'text-ink'}">${cfg.codigo} • ${estName}</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded ${isCurrent ? 'bg-terracotta text-ivory' : 'bg-parchment text-ink-muted'}">
+                ${cfg.prateleirasCount} prat.
+              </span>
+            </div>
+            <p class="text-[11px] mt-1 line-clamp-1 ${isCurrent ? 'text-ivory/85' : 'text-ink-muted'}">
+              ${cfg.titulo.replace(/^Estante \d — /, '')}
+            </p>
+          </div>
+        `;
+      }).join('');
+
+      // Render Shelves Diagram Inside Active Bookcase
+      const diagram = document.getElementById('architectural-shelves-diagram');
+      const targetNum = parseInt((book.prateleira || 'Prateleira 1').replace(/\D/g, ''), 10) || 1;
+
+      if (estCfg.cols === 1) {
+        // Estante 3: 5 wide shelves
+        let rowsHtml = '<div class="space-y-1.5">';
+        for (let p = 1; p <= estCfg.prateleirasCount; p++) {
+          const active = p === targetNum;
+          rowsHtml += `
+            <div class="rounded-xl px-3 py-2 flex items-center justify-between text-xs font-mono transition ${
+              active
+                ? 'bg-terracotta text-ivory font-bold ring-2 ring-gold-light shadow-md'
+                : 'bg-wood/60 text-ivory/75 border border-wood-light/30'
+            }">
+              <span>Prateleira ${p}</span>
+              <span>${active ? `★ ${escapeHtml(book.codigoInterno)} ESTÁ AQUI` : '—'}</span>
+            </div>
+          `;
+        }
+        rowsHtml += '</div>';
+        diagram.innerHTML = rowsHtml;
+      } else {
+        // Estante 1 (17 shelves + 1 bottom-left box niche) or Estante 2 (18 shelves)
+        let cellsHtml = '<div class="grid grid-cols-3 gap-1.5">';
+        let shelfCounter = 1;
+        const totalCells = estCfg.cols * estCfg.rows;
+
+        for (let cellIdx = 0; cellIdx < totalCells; cellIdx++) {
+          const isBottomLeftBox = estCfg.hasBottomLeftBoxSlot && cellIdx === 15;
+          if (isBottomLeftBox) {
+            cellsHtml += `
+              <div class="rounded-lg px-2 py-2 bg-ink/40 border border-wood-light/20 text-center text-[10px] font-mono text-ivory/45">
+                Caixas / Arquivo
+              </div>
+            `;
+          } else {
+            const currentShelfNum = shelfCounter++;
+            const active = currentShelfNum === targetNum;
+            cellsHtml += `
+              <div class="rounded-lg px-2 py-2 text-center font-mono text-[11px] transition ${
+                active
+                  ? 'bg-terracotta text-ivory font-bold ring-2 ring-gold-light shadow-md'
+                  : 'bg-wood/60 text-ivory/80 border border-wood-light/30'
+              }">
+                ${active ? `★ Prat. ${currentShelfNum}` : `Prat. ${currentShelfNum}`}
+              </div>
+            `;
+          }
+        }
+        cellsHtml += '</div>';
+        diagram.innerHTML = cellsHtml;
+      }
+
+      openModal('modal-book-detail');
+    };
+
+    // =========================================================================
+    // 4. LIBRARIAN AUTHENTICATION & TAB NAVIGATION
+    // =========================================================================
+    window.openStaffLoginModal = function () {
+      const input = document.getElementById('staff-pin-input');
+      if (input) input.value = '';
+      openModal('modal-staff-login');
+      setTimeout(() => input?.focus(), 80);
+    };
+
+    window.handleStaffLoginSubmit = function (event) {
+      event.preventDefault();
+      const entered = (document.getElementById('staff-pin-input')?.value || '').trim().toUpperCase();
+      if (entered !== state.staffPin.toUpperCase()) {
+        showToast('PIN incorreto. Verifique o código institucional da biblioteca.', 'warning');
+        return;
+      }
+
+      closeModal('modal-staff-login');
+      document.getElementById('reader-portal-shell').classList.add('hidden');
+      document.getElementById('librarian-portal-shell').classList.remove('hidden');
+      document.getElementById('settings-current-pin-display').textContent = state.staffPin;
+      refreshAllViews();
+      switchLibrarianTab('capture');
+      showToast('Bem-vindo ao Painel da Equipe!', 'success');
+    };
+
+    window.exitLibrarianPortal = function () {
+      stopBarcodeScanner();
+      document.getElementById('librarian-portal-shell').classList.add('hidden');
+      document.getElementById('reader-portal-shell').classList.remove('hidden');
+      renderReaderCatalog();
+    };
+
+    window.switchLibrarianTab = function (tabName) {
+      const tabs = ['capture', 'inventory', 'sections', 'wishlist', 'settings'];
+      tabs.forEach((t) => {
+        const panel = document.getElementById(`lib-tab-${t}`);
+        const navBtn = document.getElementById(`lib-nav-${t}`);
+        if (panel) panel.classList.toggle('hidden', t !== tabName);
+        if (navBtn) {
+          if (t === tabName) {
+            navBtn.className = 'lib-nav-btn flex items-center justify-between gap-2 px-3.5 py-3 rounded-2xl text-left text-xs sm:text-sm font-semibold transition bg-gold text-ink shadow-sm cursor-pointer';
+          } else {
+            navBtn.className = 'lib-nav-btn flex items-center justify-between gap-2 px-3.5 py-3 rounded-2xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light transition cursor-pointer';
+          }
+        }
+      });
+
+      if (tabName === 'settings') {
+        renderEntranceQRCode();
+      }
+      lucide.createIcons();
+    };
+
+    window.updateStaffPin = function () {
+      const newPin = (document.getElementById('settings-new-pin')?.value || '').trim().toUpperCase();
+      if (newPin.length < 4) {
+        showToast('Escolha um PIN com pelo menos 4 caracteres.', 'warning');
+        return;
+      }
+      state.staffPin = newPin;
+      persistState();
+      document.getElementById('settings-current-pin-display').textContent = newPin;
+      document.getElementById('settings-new-pin').value = '';
+      showToast(`Novo PIN institucional salvo: ${newPin}`, 'success');
+    };
+
+    // =========================================================================
+    // 5. CAPTURE & CATALOGING (ISBN, COVER PHOTO & AI ENRICHMENT)
+    // =========================================================================
+    function computeNextSpineCodeForSection(sectionName, ignoreBookId = null) {
+      const secCfg = getSectionConfig(sectionName);
+      const prefix = secCfg.sigla || 'LIV';
+      let maxNum = 0;
+      state.books.forEach((b) => {
+        if (ignoreBookId && b.id === ignoreBookId) return;
+        const match = (b.codigoInterno || '').match(new RegExp(`^${prefix}-(\\d+)$`, 'i'));
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      });
+      return `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
+    }
+
+    window.generateNextInternalCode = function () {
+      const secName = document.getElementById('form-book-section')?.value;
+      const codeInput = document.getElementById('form-book-code');
+      if (codeInput) {
+        codeInput.value = computeNextSpineCodeForSection(secName);
+      }
+    };
+
+    window.handleSectionChangeInCaptureForm = function () {
+      const secName = document.getElementById('form-book-section')?.value;
+      const cfg = getSectionConfig(secName);
+      const shelfSelect = document.getElementById('form-book-shelf');
+      if (shelfSelect && cfg.estantePadrao && LIBRARY_ESTANTES[cfg.estantePadrao]) {
+        shelfSelect.value = cfg.estantePadrao;
+        syncTierOptionsForShelf('form-book-shelf', 'form-book-tier');
+      }
+      generateNextInternalCode();
+    };
+
+    window.toggleNoIsbnCheckbox = function () {
+      const noIsbn = document.getElementById('form-book-no-isbn').checked;
+      const isbnInput = document.getElementById('form-book-isbn');
+      isbnInput.disabled = noIsbn;
+      if (noIsbn) isbnInput.value = 'Sem ISBN / Edição Antiga';
+      else isbnInput.value = '';
+    };
+
+    window.lookupBookByISBN = async function (overrideIsbn = null) {
+      const raw = (overrideIsbn || document.getElementById('input-isbn-lookup')?.value || '').replace(/[^0-9Xx]/g, '');
+      if (raw.length < 10) {
+        showToast('Digite um código ISBN válido com 10 ou 13 dígitos.', 'warning');
+        return;
+      }
+
+      showToast('Consultando bases bibliográficas...', 'info');
+      try {
+        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${raw}`);
+        const data = await res.json();
+        if (data.items && data.items.length > 0) {
+          const info = data.items[0].volumeInfo;
+          document.getElementById('form-book-title').value = info.title || '';
+          document.getElementById('form-book-author').value = (info.authors || []).join(', ');
+          document.getElementById('form-book-isbn').value = raw;
+          document.getElementById('form-book-no-isbn').checked = false;
+          document.getElementById('form-book-isbn').disabled = false;
+
+          const desc = (info.description || '').slice(0, 340);
+          if (desc) {
+            document.getElementById('form-book-summary').value = desc;
+            document.getElementById('form-book-recommendation').value = `Obra recomendada para leitores interessados em ${info.title} e nos temas abordados por ${(info.authors || ['este autor'])[0]}.`;
+          }
+          showToast('Dados preenchidos pelo ISBN! Confira a estante e prateleira.', 'success');
+        } else {
+          document.getElementById('form-book-isbn').value = raw;
+          showToast('ISBN não encontrado na base online. Preencha título/autor ou use a foto da capa.', 'warning');
+        }
+      } catch (err) {
+        showToast('Sem conexão para consulta ISBN. Preencha manualmente.', 'warning');
+      }
+    };
+
+    window.toggleBarcodeScanner = function () {
+      const wrapper = document.getElementById('barcode-reader-wrapper');
+      if (state.scannerActive) {
+        stopBarcodeScanner();
+        return;
+      }
+
+      wrapper.classList.remove('hidden');
+      state.html5QrCode = new Html5Qrcode('barcode-reader');
+      state.scannerActive = true;
+      document.getElementById('btn-toggle-scanner').innerHTML = `<i data-lucide="x-circle" class="w-4 h-4 text-terracotta"></i><span>Fechar Câmera</span>`;
+      lucide.createIcons();
+
+      state.html5QrCode
+        .start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 240, height: 120 } },
+          (decodedText) => {
+            document.getElementById('input-isbn-lookup').value = decodedText;
+            stopBarcodeScanner();
+            lookupBookByISBN(decodedText);
+          },
+          () => {}
+        )
+        .catch(() => {
+          stopBarcodeScanner();
+          showToast('Não foi possível acessar a câmera neste navegador.', 'warning');
+        });
+    };
+
+    function stopBarcodeScanner() {
+      const wrapper = document.getElementById('barcode-reader-wrapper');
+      if (wrapper) wrapper.classList.add('hidden');
+      if (state.html5QrCode && state.scannerActive) {
+        state.html5QrCode.stop().catch(() => {});
+      }
+      state.scannerActive = false;
+      const btn = document.getElementById('btn-toggle-scanner');
+      if (btn) {
+        btn.innerHTML = `<i data-lucide="camera" class="w-4 h-4 text-terracotta"></i><span>Abrir Câmera de Código de Barras</span>`;
+      }
+    }
+
+    window.handleCoverImageUpload = function (event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const previewBox = document.getElementById('cover-preview-box');
+        const previewImg = document.getElementById('cover-preview-img');
+        previewImg.src = e.target.result;
+        previewBox.classList.remove('hidden');
+
+        // Infer title hint from filename when available
+        const cleanName = file.name
+          .replace(/\.[^/.]+$/, '')
+          .replace(/[-_]+/g, ' ')
+          .replace(/\b(img|photo|capa|foto|\d+)\b/gi, '')
+          .trim();
+
+        document.getElementById('form-book-no-isbn').checked = true;
+        toggleNoIsbnCheckbox();
+        if (cleanName.length > 2 && !document.getElementById('form-book-title').value) {
+          document.getElementById('form-book-title').value = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
+        }
+        showToast('Imagem da capa carregada! Complete ou revise os campos da ficha.', 'success');
+      };
+      reader.readAsDataURL(file);
+    };
+
+    window.enrichFormWithAI = function () {
+      const qTitle = document.getElementById('quick-ai-title').value.trim() || document.getElementById('form-book-title').value.trim();
+      const qAuthor = document.getElementById('quick-ai-author').value.trim() || document.getElementById('form-book-author').value.trim();
+
+      if (!qTitle) {
+        showToast('Informe ao menos o título da obra para gerar o resumo.', 'warning');
+        return;
+      }
+
+      document.getElementById('form-book-title').value = qTitle;
+      if (qAuthor) document.getElementById('form-book-author').value = qAuthor;
+
+      const secName = document.getElementById('form-book-section').value;
+      const authorLabel = qAuthor || 'seu autor';
+      document.getElementById('form-book-summary').value =
+        `Obra de referência na seção de ${secName}, escrita por ${authorLabel}, abordando de forma clara e estruturada os temas centrais de "${qTitle}".`;
+      document.getElementById('form-book-recommendation').value =
+        `Indicado para leitores que desejam aprofundar seus conhecimentos em ${secName} e encontrar orientação prática através da leitura de "${qTitle}".`;
+      document.getElementById('form-book-keywords').value =
+        `${qTitle.toLowerCase()}, ${authorLabel.toLowerCase()}, ${secName.toLowerCase()}`;
+
+      showToast('Resumo e indicação de leitura gerados na ficha!', 'success');
+    };
+
+    window.resetCaptureForm = function () {
+      document.getElementById('form-register-book').reset();
+      document.getElementById('form-wishlist-id').value = '';
+      document.getElementById('input-isbn-lookup').value = '';
+      document.getElementById('quick-ai-title').value = '';
+      document.getElementById('quick-ai-author').value = '';
+      document.getElementById('form-book-shelf-tag').value = '';
+      document.getElementById('cover-preview-box').classList.add('hidden');
+      document.getElementById('form-book-isbn').disabled = false;
+      handleSectionChangeInCaptureForm();
+    };
+
+    window.handleSaveNewBook = function (event) {
+      event.preventDefault();
+      const titulo = document.getElementById('form-book-title').value.trim();
+      const autor = document.getElementById('form-book-author').value.trim();
+      const secao = document.getElementById('form-book-section').value;
+      const codigoInterno = document.getElementById('form-book-code').value.trim().toUpperCase();
+      const estante = document.getElementById('form-book-shelf').value;
+      const prateleira = document.getElementById('form-book-tier').value;
+      const etiquetaPrateleira = document.getElementById('form-book-shelf-tag').value.trim();
+      const qty = Math.max(1, parseInt(document.getElementById('form-book-qty').value, 10) || 1);
+      const noIsbn = document.getElementById('form-book-no-isbn').checked;
+      const isbn = noIsbn
+        ? 'Sem ISBN / Edição Antiga'
+        : document.getElementById('form-book-isbn').value.trim() || 'Sem ISBN / Edição Antiga';
+      const resumo = document.getElementById('form-book-summary').value.trim();
+      const indicacao = document.getElementById('form-book-recommendation').value.trim();
+      const palavrasChave = document.getElementById('form-book-keywords').value.trim();
+      const wishId = document.getElementById('form-wishlist-id').value;
+
+      state.books.unshift({
+        id: `book-${Date.now()}`,
+        codigoInterno,
+        isbn,
+        titulo,
+        autor,
+        secao,
+        estante,
+        prateleira,
+        etiquetaPrateleira,
+        quantidadeTotal: qty,
+        quantidadeDisponivel: qty,
+        resumo,
+        indicacao,
+        palavrasChave
+      });
+
+      if (wishId) {
+        state.wishlist = state.wishlist.filter((w) => w.id !== wishId);
+      }
+
+      persistState();
+      resetCaptureForm();
+      refreshAllViews();
+      showToast(`"${titulo}" (${codigoInterno}) catalogado em ${estante} • ${prateleira}!`, 'success');
+      switchLibrarianTab('inventory');
+    };
+
+    // =========================================================================
+    // 6. INVENTORY MANAGEMENT, INLINE LOCATION & BULK MOVE
+    // =========================================================================
+    function getFilteredInventoryBooks() {
+      const q = normalizeText(document.getElementById('lib-inventory-search')?.value || '');
+      const secFilter = document.getElementById('lib-inventory-section-filter')?.value || 'ALL';
+      const shelfFilter = document.getElementById('lib-inventory-shelf-filter')?.value || 'ALL';
+
+      return state.books.filter((b) => {
+        if (secFilter !== 'ALL' && b.secao !== secFilter) return false;
+        if (shelfFilter !== 'ALL' && b.estante !== shelfFilter) return false;
+        if (!q) return true;
+        return normalizeText(
+          `${b.titulo} ${b.autor} ${b.codigoInterno} ${b.estante} ${b.prateleira} ${b.etiquetaPrateleira || ''} ${b.secao}`
+        ).includes(q);
+      });
+    }
+
+    window.renderLibrarianInventory = function () {
+      const container = document.getElementById('lib-inventory-list');
+      const countLabel = document.getElementById('lib-inventory-count-label');
+      if (!container) return;
+
+      const filtered = getFilteredInventoryBooks();
+      if (countLabel) {
+        countLabel.textContent = `${filtered.length} ${filtered.length === 1 ? 'obra' : 'obras'}`;
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="rounded-3xl bg-ivory border border-sand p-8 text-center space-y-2">
+            <p class="font-serif text-xl font-bold text-ink">Nenhuma obra encontrada neste filtro</p>
+            <p class="text-xs text-ink-muted">Ajuste a busca ou cadastre um novo exemplar na aba "Capturar & Catalogar".</p>
+          </div>
+        `;
+        updateBulkActionBar();
+        return;
+      }
+
+      container.innerHTML = filtered
+        .map((book) => {
+          const isSelected = state.selectedBookIds.includes(book.id);
+          const avail = book.quantidadeDisponivel || 0;
+          const total = book.quantidadeTotal || 1;
+          const cardBorder = isSelected ? 'border-gold bg-gold-soft/20' : 'border-sand bg-ivory';
+
+          const sectionOptionsHtml = state.sections
+            .map(
+              (sec) =>
+                `<option value="${escapeHtml(sec.nome)}" ${book.secao === sec.nome ? 'selected' : ''}>${escapeHtml(sec.sigla)} · ${escapeHtml(sec.nome)}</option>`
+            )
+            .join('');
+
+          const shelfOptionsHtml = ESTANTES_LIST.map(
+            (est, idx) =>
+              `<option value="${est}" ${book.estante === est ? 'selected' : ''}>E${idx + 1} · ${est}</option>`
+          ).join('');
+
+          const validTiers = getPrateleirasForEstante(book.estante);
+          const tierOptionsHtml = validTiers
+            .map(
+              (prat, idx) =>
+                `<option value="${prat}" ${book.prateleira === prat ? 'selected' : ''}>P${idx + 1} · ${prat}</option>`
+            )
+            .join('');
+
+          return `
+            <div class="rounded-2xl border p-4 sm:p-5 flex flex-col gap-3.5 shadow-2xs transition ${cardBorder}">
+              <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div class="flex items-start gap-3 min-w-0">
+                  <input
+                    type="checkbox"
+                    ${isSelected ? 'checked' : ''}
+                    onchange="toggleSelectBook('${escapeHtml(book.id)}')"
+                    class="mt-1.5 w-4 h-4 rounded accent-forest cursor-pointer shrink-0"
+                  />
+                  <div class="min-w-0 space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="px-2 py-0.5 rounded-md bg-forest text-gold-light font-mono text-[11px] font-bold">
+                        ${escapeHtml(book.codigoInterno)}
+                      </span>
+                      <span class="text-xs font-semibold text-terracotta">
+                        ${escapeHtml(book.estante)} · ${escapeHtml(book.prateleira)}
+                      </span>
+                      <span class="text-[11px] font-mono text-ink-muted">
+                        • ISBN: ${escapeHtml(book.isbn || 'Sem ISBN')}
+                      </span>
+                    </div>
+                    <h4 class="font-serif text-lg font-bold text-ink leading-snug truncate">
+                      ${escapeHtml(book.titulo)}
+                    </h4>
+                    <p class="text-xs text-ink-muted">
+                      Por <strong class="text-ink">${escapeHtml(book.autor)}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Loan/Return & Actions -->
+                <div class="pl-7 lg:pl-0 flex flex-wrap items-center gap-2 shrink-0">
+                  <span class="px-2.5 py-1 rounded-xl text-xs font-bold ${
+                    avail > 0
+                      ? 'bg-forest-soft text-forest border border-forest/20'
+                      : 'bg-terracotta-soft text-terracotta border border-terracotta/25'
+                  }">
+                    ${avail}/${total} disp.
+                  </span>
+
+                  <button
+                    type="button"
+                    onclick="adjustBookAvailability('${escapeHtml(book.id)}', -1)"
+                    ${avail <= 0 ? 'disabled' : ''}
+                    class="px-2.5 py-1.5 rounded-xl bg-parchment hover:bg-terracotta-soft disabled:opacity-40 text-ink border border-sand text-xs font-semibold transition cursor-pointer"
+                  >
+                    Emprestar
+                  </button>
+
+                  <button
+                    type="button"
+                    onclick="adjustBookAvailability('${escapeHtml(book.id)}', 1)"
+                    ${avail >= total ? 'disabled' : ''}
+                    class="px-2.5 py-1.5 rounded-xl bg-parchment hover:bg-forest-soft disabled:opacity-40 text-ink border border-sand text-xs font-semibold transition cursor-pointer"
+                  >
+                    Devolver
+                  </button>
+
+                  <button
+                    type="button"
+                    onclick="adjustBookTotalCopies('${escapeHtml(book.id)}', 1)"
+                    class="px-2 py-1.5 rounded-xl bg-parchment hover:bg-sand/60 text-ink border border-sand text-xs font-mono font-bold transition cursor-pointer"
+                  >
+                    +1 ex.
+                  </button>
+
+                  <button
+                    type="button"
+                    onclick="openLabelModal('${escapeHtml(book.id)}')"
+                    title="Gerar etiqueta de lombada"
+                    class="p-2 rounded-xl bg-parchment hover:bg-gold-soft text-ink border border-sand transition cursor-pointer"
+                  >
+                    <i data-lucide="qr-code" class="w-4 h-4 text-forest"></i>
+                  </button>
+
+                  <button
+                    type="button"
+                    onclick="openEditBookModal('${escapeHtml(book.id)}')"
+                    title="Editar detalhes completos"
+                    class="p-2 rounded-xl bg-parchment hover:bg-sand/60 text-ink border border-sand transition cursor-pointer"
+                  >
+                    <i data-lucide="pencil" class="w-4 h-4 text-ink"></i>
+                  </button>
+
+                  <button
+                    type="button"
+                    onclick="deleteBook('${escapeHtml(book.id)}')"
+                    title="Remover obra"
+                    class="p-2 rounded-xl bg-parchment hover:bg-terracotta-soft text-terracotta border border-sand transition cursor-pointer"
+                  >
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 1-Click Inline Section, Estante, Prateleira & Shelf Tag Editor -->
+              <div class="pl-7 pt-2.5 border-t border-sand/70 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                <div class="flex items-center gap-2 bg-parchment/90 px-3 py-1.5 rounded-xl border border-sand">
+                  <span class="text-[11px] font-semibold text-ink-muted shrink-0">Seção:</span>
+                  <select
+                    onchange="handleInlineBookSectionChange('${escapeHtml(book.id)}', this.value)"
+                    class="w-full bg-transparent text-xs font-semibold text-forest focus:outline-none cursor-pointer"
+                  >
+                    ${sectionOptionsHtml}
+                  </select>
+                </div>
+
+                <div class="flex items-center gap-2 bg-parchment/90 px-3 py-1.5 rounded-xl border border-sand">
+                  <span class="text-[11px] font-semibold text-ink-muted shrink-0">Estante:</span>
+                  <select
+                    onchange="handleInlineBookLocationChange('${escapeHtml(book.id)}', 'estante', this.value)"
+                    class="w-full bg-transparent text-xs font-mono font-semibold text-ink focus:outline-none cursor-pointer"
+                  >
+                    ${shelfOptionsHtml}
+                  </select>
+                </div>
+
+                <div class="flex items-center gap-2 bg-parchment/90 px-3 py-1.5 rounded-xl border border-sand">
+                  <span class="text-[11px] font-semibold text-ink-muted shrink-0">Prateleira:</span>
+                  <select
+                    onchange="handleInlineBookLocationChange('${escapeHtml(book.id)}', 'prateleira', this.value)"
+                    class="w-full bg-transparent text-xs font-mono font-semibold text-terracotta-dark focus:outline-none cursor-pointer"
+                  >
+                    ${tierOptionsHtml}
+                  </select>
+                </div>
+
+                <div class="flex items-center gap-2 bg-parchment/90 px-3 py-1.5 rounded-xl border border-sand">
+                  <span class="text-[11px] font-semibold text-ink-muted shrink-0">Etiqueta:</span>
+                  <input
+                    type="text"
+                    value="${escapeHtml(book.etiquetaPrateleira || '')}"
+                    list="shelf-tags-suggestions"
+                    placeholder="Autor/sub-setor..."
+                    onchange="handleInlineBookLocationChange('${escapeHtml(book.id)}', 'etiquetaPrateleira', this.value.trim())"
+                    class="w-full bg-transparent text-xs font-medium text-ink focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      updateBulkActionBar();
+      lucide.createIcons();
+    };
+
+    window.handleInlineBookSectionChange = function (bookId, newSection) {
+      const book = state.books.find((b) => b.id === bookId);
+      if (!book || book.secao === newSection) return;
+
+      book.secao = newSection;
+      book.codigoInterno = computeNextSpineCodeForSection(newSection, book.id);
+      persistState();
+      refreshAllViews();
+      showToast(`Seção alterada para "${newSection}" (${book.codigoInterno}).`, 'success');
+    };
+
+    window.handleInlineBookLocationChange = function (bookId, field, newValue) {
+      const book = state.books.find((b) => b.id === bookId);
+      if (!book || (book[field] || '') === newValue) return;
+
+      book[field] = newValue;
+      if (field === 'estante') {
+        const validTiers = getPrateleirasForEstante(newValue);
+        if (!validTiers.includes(book.prateleira)) {
+          book.prateleira = validTiers[0];
+        }
+      }
+
+      persistState();
+      refreshAllViews();
+      showToast(`Localização atualizada: ${book.estante} • ${book.prateleira}.`, 'success');
+    };
+
+    window.adjustBookAvailability = function (bookId, delta) {
+      const book = state.books.find((b) => b.id === bookId);
+      if (!book) return;
+      const next = Math.max(0, Math.min(book.quantidadeTotal || 1, (book.quantidadeDisponivel || 0) + delta));
+      book.quantidadeDisponivel = next;
+      persistState();
+      refreshAllViews();
+      showToast(delta < 0 ? 'Empréstimo registrado.' : 'Devolução registrada!', 'info');
+    };
+
+    window.adjustBookTotalCopies = function (bookId, delta) {
+      const book = state.books.find((b) => b.id === bookId);
+      if (!book) return;
+      book.quantidadeTotal = Math.max(1, (book.quantidadeTotal || 1) + delta);
+      book.quantidadeDisponivel = Math.max(0, (book.quantidadeDisponivel || 0) + delta);
+      persistState();
+      refreshAllViews();
+      showToast(`Total de exemplares atualizado para ${book.quantidadeTotal}.`, 'success');
+    };
+
+    window.deleteBook = function (bookId) {
+      const book = state.books.find((b) => b.id === bookId);
+      if (!book) return;
+      state.books = state.books.filter((b) => b.id !== bookId);
+      state.selectedBookIds = state.selectedBookIds.filter((id) => id !== bookId);
+      persistState();
+      refreshAllViews();
+      showToast(`"${book.titulo}" removido do acervo.`, 'info');
+    };
+
+    // Bulk Selection & Move
+    window.toggleSelectBook = function (bookId) {
+      if (state.selectedBookIds.includes(bookId)) {
+        state.selectedBookIds = state.selectedBookIds.filter((id) => id !== bookId);
+      } else {
+        state.selectedBookIds.push(bookId);
+      }
+      renderLibrarianInventory();
+    };
+
+    window.toggleSelectAllFilteredBooks = function () {
+      const filtered = getFilteredInventoryBooks();
+      const allSelected = filtered.length > 0 && filtered.every((b) => state.selectedBookIds.includes(b.id));
+      if (allSelected) {
+        const filteredIds = new Set(filtered.map((b) => b.id));
+        state.selectedBookIds = state.selectedBookIds.filter((id) => !filteredIds.has(id));
+      } else {
+        const merged = new Set([...state.selectedBookIds, ...filtered.map((b) => b.id)]);
+        state.selectedBookIds = Array.from(merged);
+      }
+      renderLibrarianInventory();
+    };
+
+    window.clearBulkSelection = function () {
+      state.selectedBookIds = [];
+      renderLibrarianInventory();
+    };
+
+    function updateBulkActionBar() {
+      const bar = document.getElementById('bulk-move-action-bar');
+      const countBadge = document.getElementById('bulk-selected-count-badge');
+      const titleEl = document.getElementById('bulk-selected-title');
+      if (!bar) return;
+
+      const count = state.selectedBookIds.length;
+      bar.classList.toggle('hidden', count === 0);
+      if (countBadge) countBadge.textContent = count;
+      if (titleEl) titleEl.textContent = `${count} ${count === 1 ? 'obra selecionada' : 'obras selecionadas'}`;
+    }
+
+    window.syncBulkTargetTierOptions = function () {
+      const shelfVal = document.getElementById('bulk-target-shelf')?.value;
+      const tierSelect = document.getElementById('bulk-target-tier');
+      if (!tierSelect) return;
+
+      if (!shelfVal || shelfVal === 'KEEP') {
+        const maxTiers = Array.from({ length: 18 }, (_, i) => `Prateleira ${i + 1}`);
+        tierSelect.innerHTML =
+          `<option value="KEEP">Manter prateleira atual</option>` +
+          maxTiers.map((t, idx) => `<option value="${t}">P${idx + 1} · ${t}</option>`).join('');
+      } else {
+        const valid = getPrateleirasForEstante(shelfVal);
+        tierSelect.innerHTML =
+          `<option value="KEEP">Manter prateleira atual</option>` +
+          valid.map((t, idx) => `<option value="${t}">P${idx + 1} · ${t}</option>`).join('');
+      }
+    };
+
+    window.executeBulkMoveBooks = function () {
+      if (state.selectedBookIds.length === 0) return;
+
+      const targetSection = document.getElementById('bulk-target-section').value;
+      const targetShelf = document.getElementById('bulk-target-shelf').value;
+      const targetTier = document.getElementById('bulk-target-tier').value;
+      const targetShelfTag = document.getElementById('bulk-target-shelf-tag').value.trim();
+
+      if (targetSection === 'KEEP' && targetShelf === 'KEEP' && targetTier === 'KEEP' && !targetShelfTag) {
+        showToast('Selecione ao menos um destino para mover os livros.', 'warning');
+        return;
+      }
+
+      const movedCount = state.selectedBookIds.length;
+      state.selectedBookIds.forEach((id) => {
+        const book = state.books.find((b) => b.id === id);
+        if (!book) return;
+        if (targetSection !== 'KEEP' && book.secao !== targetSection) {
+          book.secao = targetSection;
+          book.codigoInterno = computeNextSpineCodeForSection(targetSection, book.id);
+        }
+        if (targetShelf !== 'KEEP') {
+          book.estante = targetShelf;
+          const validTiers = getPrateleirasForEstante(targetShelf);
+          if (targetTier !== 'KEEP' && validTiers.includes(targetTier)) {
+            book.prateleira = targetTier;
+          } else if (!validTiers.includes(book.prateleira)) {
+            book.prateleira = validTiers[0];
+          }
+        } else if (targetTier !== 'KEEP') {
+          const validTiers = getPrateleirasForEstante(book.estante);
+          if (validTiers.includes(targetTier)) {
+            book.prateleira = targetTier;
+          }
+        }
+        if (targetShelfTag) {
+          book.etiquetaPrateleira = targetShelfTag;
+        }
+      });
+
+      state.selectedBookIds = [];
+      document.getElementById('bulk-target-shelf-tag').value = '';
+      persistState();
+      refreshAllViews();
+      showToast(`${movedCount} ${movedCount === 1 ? 'obra movida' : 'obras movidas'} com sucesso!`, 'success');
+    };
+
+    // Full Edit Modal
+    window.openEditBookModal = function (bookId) {
+      const book = state.books.find((b) => b.id === bookId);
+      if (!book) return;
+
+      document.getElementById('edit-book-id').value = book.id;
+      document.getElementById('edit-book-title').value = book.titulo;
+      document.getElementById('edit-book-author').value = book.autor;
+      document.getElementById('edit-book-code').value = book.codigoInterno;
+      document.getElementById('edit-book-shelf').value = book.estante;
+      syncTierOptionsForShelf('edit-book-shelf', 'edit-book-tier', book.prateleira);
+      document.getElementById('edit-book-section').value = book.secao;
+      document.getElementById('edit-book-shelf-tag').value = book.etiquetaPrateleira || '';
+      document.getElementById('edit-book-isbn').value = book.isbn || '';
+      document.getElementById('edit-book-summary').value = book.resumo;
+      document.getElementById('edit-book-recommendation').value = book.indicacao;
+      document.getElementById('edit-book-keywords').value = book.palavrasChave || '';
+      openModal('modal-edit-book');
+    };
+
+    window.handleSaveEditBook = function (event) {
+      event.preventDefault();
+      const id = document.getElementById('edit-book-id').value;
+      const book = state.books.find((b) => b.id === id);
+      if (!book) return;
+
+      book.titulo = document.getElementById('edit-book-title').value.trim();
+      book.autor = document.getElementById('edit-book-author').value.trim();
+      book.codigoInterno = document.getElementById('edit-book-code').value.trim().toUpperCase();
+      book.estante = document.getElementById('edit-book-shelf').value;
+      book.prateleira = document.getElementById('edit-book-tier').value;
+      book.secao = document.getElementById('edit-book-section').value;
+      book.etiquetaPrateleira = document.getElementById('edit-book-shelf-tag').value.trim();
+      book.isbn = document.getElementById('edit-book-isbn').value.trim() || 'Sem ISBN / Edição Antiga';
+      book.resumo = document.getElementById('edit-book-summary').value.trim();
+      book.indicacao = document.getElementById('edit-book-recommendation').value.trim();
+      book.palavrasChave = document.getElementById('edit-book-keywords').value.trim();
+
+      persistState();
+      refreshAllViews();
+      closeModal('modal-edit-book');
+      showToast('Alterações salvas com sucesso!', 'success');
+    };
+
+    // =========================================================================
+    // 7. MANAGE SECTIONS (CREATE, EDIT, LIVE PREVIEW & SAFE DELETE)
+    // =========================================================================
+    function populatePaletteSelector() {
+      const select = document.getElementById('sec-form-palette');
+      if (!select) return;
+      select.innerHTML = Object.entries(COVER_PALETTES)
+        .map(([key, val]) => `<option value="${key}">${escapeHtml(val.label)}</option>`)
+        .join('');
+    }
+
+    window.handleSectionNameInput = function () {
+      const id = document.getElementById('sec-form-id').value;
+      const name = document.getElementById('sec-form-name').value.trim();
+      const siglaInput = document.getElementById('sec-form-sigla');
+
+      if (!id && name.length >= 2) {
+        const clean = normalizeText(name).replace(/[^a-z]/g, '').toUpperCase();
+        siglaInput.value = clean.slice(0, 3);
+      }
+      updateSectionLivePreview();
+    };
+
+    window.updateSectionLivePreview = function () {
+      const name = document.getElementById('sec-form-name')?.value.trim() || 'Nova Seção';
+      const sigla = (document.getElementById('sec-form-sigla')?.value.trim() || 'SEC').toUpperCase();
+      const shelf = document.getElementById('sec-form-shelf')?.value || 'Estante 1';
+      const glyph = document.getElementById('sec-form-glyph')?.value || '✦';
+      const paletteKey = document.getElementById('sec-form-palette')?.value || 'forest';
+      const palette = COVER_PALETTES[paletteKey] || COVER_PALETTES.forest;
+
+      const jacket = document.getElementById('sec-live-jacket');
+      if (jacket) jacket.style.background = palette.bg;
+      document.getElementById('sec-live-glyph').textContent = glyph;
+      document.getElementById('sec-live-sigla').textContent = sigla;
+      document.getElementById('sec-live-name').textContent = name;
+      document.getElementById('sec-live-meta').innerHTML = `Etiquetas geradas como <strong>${escapeHtml(sigla)}-001</strong> • <strong>${escapeHtml(shelf)}</strong>.`;
+    };
+
+    window.resetSectionForm = function () {
+      document.getElementById('form-section-editor').reset();
+      document.getElementById('sec-form-id').value = '';
+      document.getElementById('sec-form-heading').textContent = 'Nova Seção Temática';
+      document.getElementById('sec-form-submit-label').textContent = 'Criar Seção';
+      document.getElementById('sec-form-cancel-btn').classList.add('hidden');
+      document.getElementById('sec-update-codes-wrapper').classList.add('hidden');
+      updateSectionLivePreview();
+    };
+
+    window.startEditSection = function (sectionId) {
+      const sec = state.sections.find((s) => s.id === sectionId);
+      if (!sec) return;
+
+      document.getElementById('sec-form-id').value = sec.id;
+      document.getElementById('sec-form-name').value = sec.nome;
+      document.getElementById('sec-form-sigla').value = sec.sigla;
+      document.getElementById('sec-form-shelf').value = sec.estantePadrao || 'Estante 1';
+      document.getElementById('sec-form-glyph').value = sec.glyph || '✦';
+      document.getElementById('sec-form-palette').value = sec.paletteKey || 'forest';
+
+      document.getElementById('sec-form-heading').textContent = `Editar: ${sec.nome}`;
+      document.getElementById('sec-form-submit-label').textContent = 'Salvar Alterações';
+      document.getElementById('sec-form-cancel-btn').classList.remove('hidden');
+      document.getElementById('sec-update-codes-wrapper').classList.remove('hidden');
+      updateSectionLivePreview();
+    };
+
+    window.handleSaveSection = function (event) {
+      event.preventDefault();
+      const id = document.getElementById('sec-form-id').value;
+      const nome = document.getElementById('sec-form-name').value.trim();
+      const sigla = document.getElementById('sec-form-sigla').value.trim().toUpperCase();
+      const estantePadrao = document.getElementById('sec-form-shelf').value;
+      const glyph = document.getElementById('sec-form-glyph').value;
+      const paletteKey = document.getElementById('sec-form-palette').value;
+
+      if (!nome || !sigla) return;
+
+      if (id) {
+        const existing = state.sections.find((s) => s.id === id);
+        if (!existing) return;
+
+        const oldName = existing.nome;
+        const oldSigla = existing.sigla;
+        const shouldUpdateCodes = document.getElementById('sec-update-existing-codes').checked;
+
+        existing.nome = nome;
+        existing.sigla = sigla;
+        existing.estantePadrao = estantePadrao;
+        existing.glyph = glyph;
+        existing.paletteKey = paletteKey;
+
+        state.books.forEach((b) => {
+          if (b.secao === oldName) {
+            b.secao = nome;
+            if (shouldUpdateCodes && oldSigla !== sigla) {
+              b.codigoInterno = b.codigoInterno.replace(new RegExp(`^${oldSigla}-`, 'i'), `${sigla}-`);
+            }
+          }
+        });
+
+        showToast(`Seção "${nome}" atualizada!`, 'success');
+      } else {
+        if (state.sections.some((s) => normalizeText(s.nome) === normalizeText(nome))) {
+          showToast('Já existe uma seção com este nome.', 'warning');
+          return;
+        }
+        state.sections.push({
+          id: `sec-${Date.now()}`,
+          nome,
+          sigla,
+          estantePadrao,
+          glyph,
+          paletteKey
+        });
+        showToast(`Nova seção "${nome}" (${sigla}) criada!`, 'success');
+      }
+
+      persistState();
+      resetSectionForm();
+      refreshAllViews();
+    };
+
+    window.renderSectionsManager = function () {
+      const list = document.getElementById('lib-sections-list');
+      const countEl = document.getElementById('sections-total-count');
+      if (!list) return;
+
+      if (countEl) countEl.textContent = `${state.sections.length} seções`;
+
+      list.innerHTML = state.sections
+        .map((sec) => {
+          const palette = COVER_PALETTES[sec.paletteKey] || COVER_PALETTES.forest;
+          const bookCount = state.books.filter((b) => b.secao === sec.nome).length;
+
+          return `
+            <div class="rounded-2xl bg-ivory border border-sand p-4 flex items-center justify-between gap-3 shadow-2xs">
+              <div class="flex items-center gap-3 min-w-0">
+                <div
+                  class="w-11 h-14 rounded-r-lg rounded-l-xs text-ivory flex flex-col items-center justify-center shrink-0 shadow-xs"
+                  style="background: ${palette.bg};"
+                >
+                  <span style="color: ${palette.accent};" class="text-xs">${escapeHtml(sec.glyph)}</span>
+                  <span class="font-mono text-[10px] font-bold">${escapeHtml(sec.sigla)}</span>
+                </div>
+                <div class="min-w-0">
+                  <h4 class="font-serif text-lg font-bold text-ink truncate">${escapeHtml(sec.nome)}</h4>
+                  <p class="text-[11px] text-ink-muted">
+                    ${escapeHtml(sec.estantePadrao)} • <strong class="text-forest">${bookCount} ${bookCount === 1 ? 'obra' : 'obras'}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onclick="startEditSection('${escapeHtml(sec.id)}')"
+                  class="p-2 rounded-xl bg-parchment hover:bg-sand/70 text-ink border border-sand transition cursor-pointer"
+                  title="Editar seção"
+                >
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+                <button
+                  type="button"
+                  onclick="promptDeleteSection('${escapeHtml(sec.id)}')"
+                  class="p-2 rounded-xl bg-parchment hover:bg-terracotta-soft text-terracotta border border-sand transition cursor-pointer"
+                  title="Excluir seção"
+                >
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    };
+
+    window.promptDeleteSection = function (sectionId) {
+      if (state.sections.length <= 1) {
+        showToast('A biblioteca precisa manter ao menos uma seção ativa.', 'warning');
+        return;
+      }
+
+      const sec = state.sections.find((s) => s.id === sectionId);
+      if (!sec) return;
+
+      const linkedBooks = state.books.filter((b) => b.secao === sec.nome);
+      document.getElementById('delete-sec-id').value = sec.id;
+
+      const msgEl = document.getElementById('delete-sec-message');
+      const transferBox = document.getElementById('delete-sec-transfer-box');
+      const targetSelect = document.getElementById('delete-sec-target');
+
+      if (linkedBooks.length > 0) {
+        msgEl.innerHTML = `A seção <strong>${escapeHtml(sec.nome)}</strong> possui <strong>${linkedBooks.length} ${linkedBooks.length === 1 ? 'livro catalogado' : 'livros catalogados'}</strong>. Escolha para qual seção eles devem ser transferidos antes de excluir:`;
+        transferBox.classList.remove('hidden');
+        targetSelect.innerHTML = state.sections
+          .filter((s) => s.id !== sec.id)
+          .map((s) => `<option value="${escapeHtml(s.nome)}">${escapeHtml(s.nome)} (${escapeHtml(s.sigla)})</option>`)
+          .join('');
+      } else {
+        msgEl.innerHTML = `Deseja remover a seção vazia <strong>${escapeHtml(sec.nome)}</strong>?`;
+        transferBox.classList.add('hidden');
+      }
+
+      openModal('modal-delete-section');
+    };
+
+    window.confirmDeleteSection = function () {
+      const secId = document.getElementById('delete-sec-id').value;
+      const sec = state.sections.find((s) => s.id === secId);
+      if (!sec) return;
+
+      const targetName = document.getElementById('delete-sec-target')?.value;
+      state.books.forEach((b) => {
+        if (b.secao === sec.nome && targetName) {
+          b.secao = targetName;
+        }
+      });
+
+      state.sections = state.sections.filter((s) => s.id !== secId);
+      if (state.activeSectionFilter === sec.nome) state.activeSectionFilter = 'ALL';
+
+      persistState();
+      closeModal('modal-delete-section');
+      refreshAllViews();
+      showToast(`Seção "${sec.nome}" removida.`, 'info');
+    };
+
+    // =========================================================================
+    // 8. WISHLIST, LABELS & QR POSTER
+    // =========================================================================
+    window.renderLibrarianWishlist = function () {
+      const container = document.getElementById('lib-wishlist-container');
+      if (!container) return;
+
+      if (state.wishlist.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full rounded-3xl bg-ivory border border-sand p-8 text-center space-y-1">
+            <p class="font-serif text-xl font-bold text-ink">Nenhuma solicitação pendente</p>
+            <p class="text-xs text-ink-muted">Quando os visitantes sugerirem novos livros na busca, eles aparecerão aqui.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = state.wishlist
+        .map(
+          (w) => `
+          <div class="rounded-2xl bg-ivory border border-sand p-5 flex flex-col justify-between gap-4 shadow-2xs">
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between gap-2">
+                <span class="px-2.5 py-0.5 rounded-full bg-terracotta-soft text-terracotta text-[11px] font-bold">
+                  ${w.solicitacoes} ${w.solicitacoes === 1 ? 'pedido' : 'pedidos'}
+                </span>
+                <span class="text-[11px] font-mono text-ink-muted">${escapeHtml(w.data)}</span>
+              </div>
+              <h4 class="font-serif text-xl font-bold text-ink">${escapeHtml(w.titulo)}</h4>
+              <p class="text-xs text-ink-muted">${escapeHtml(w.autor)}</p>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2 border-t border-sand/70">
+              <button
+                type="button"
+                onclick="promoteWishlistToCatalog('${escapeHtml(w.id)}')"
+                class="flex-1 py-2 px-3 rounded-xl bg-forest hover:bg-forest-light text-ivory text-xs font-semibold transition cursor-pointer"
+              >
+                Já Compramos → Catalogar
+              </button>
+              <button
+                type="button"
+                onclick="removeWishlistItem('${escapeHtml(w.id)}')"
+                class="p-2 rounded-xl bg-parchment hover:bg-terracotta-soft text-terracotta border border-sand transition cursor-pointer"
+                title="Descartar pedido"
+              >
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        `
+        )
+        .join('');
+    };
+
+    window.promoteWishlistToCatalog = function (wishId) {
+      const item = state.wishlist.find((w) => w.id === wishId);
+      if (!item) return;
+
+      switchLibrarianTab('capture');
+      document.getElementById('form-wishlist-id').value = item.id;
+      document.getElementById('form-book-title').value = item.titulo;
+      document.getElementById('form-book-author').value = item.autor === 'Autor não informado' ? '' : item.autor;
+      generateNextInternalCode();
+      showToast('Dados preenchidos na ficha! Escolha a estante e a prateleira.', 'info');
+    };
+
+    window.removeWishlistItem = function (wishId) {
+      state.wishlist = state.wishlist.filter((w) => w.id !== wishId);
+      persistState();
+      refreshAllViews();
+    };
+
+    window.openLabelModal = function (bookId) {
+      const book = state.books.find((b) => b.id === bookId);
+      if (!book) return;
+
+      document.getElementById('spine-label-code').textContent = book.codigoInterno;
+      document.getElementById('spine-label-coords').textContent = `${book.estante} • ${book.prateleira}`;
+      document.getElementById('spine-label-title').textContent = book.titulo;
+
+      const qrBox = document.getElementById('spine-label-qr');
+      qrBox.innerHTML = '';
+      const targetUrl = `${window.location.origin}${window.location.pathname}?livro=${encodeURIComponent(book.codigoInterno)}`;
+      new QRCode(qrBox, {
+        text: targetUrl,
+        width: 96,
+        height: 96,
+        colorDark: '#17382A',
+        colorLight: '#FFFFFF'
+      });
+
+      openModal('modal-spine-label');
+    };
+
+    window.printSingleLabel = function () {
+      const printArea = document.getElementById('printable-area');
+      const card = document.getElementById('single-label-card');
+      if (!printArea || !card) return;
+      printArea.innerHTML = card.outerHTML;
+      printArea.classList.remove('hidden');
+      window.print();
+      printArea.classList.add('hidden');
+    };
+
+    function renderEntranceQRCode() {
+      const box = document.getElementById('entrance-qr-box');
+      if (!box) return;
+      box.innerHTML = '';
+      const catalogUrl = `${window.location.origin}${window.location.pathname}`;
+      new QRCode(box, {
+        text: catalogUrl,
+        width: 150,
+        height: 150,
+        colorDark: '#17382A',
+        colorLight: '#FFFFFF'
+      });
+    }
+
+    window.printEntrancePoster = function () {
+      renderEntranceQRCode();
+      const printArea = document.getElementById('printable-area');
+      const qrHtml = document.getElementById('entrance-qr-box')?.innerHTML || '';
+      printArea.innerHTML = `
+        <div style="border: 3px solid #17382A; border-radius: 24px; padding: 40px; text-align: center; max-width: 480px; margin: 20px auto; font-family: Georgia, serif;">
+          <p style="font-family: monospace; font-size: 13px; letter-spacing: 2px; color: #B85A34; font-weight: bold;">ACERVOVIVO • BIBLIOTECA</p>
+          <h1 style="font-size: 36px; color: #17382A; margin: 12px 0;">Procurando um livro?</h1>
+          <p style="font-family: sans-serif; font-size: 15px; color: #333; line-height: 1.5; margin-bottom: 24px;">
+            Aponte a câmera do seu celular para o QR Code abaixo e consulte títulos, resumos e a prateleira exata nas Estantes 1, 2 e 3.
+          </p>
+          <div style="display: inline-block; padding: 16px; border: 1px solid #ccc; border-radius: 16px;">${qrHtml}</div>
+        </div>
+      `;
+      printArea.classList.remove('hidden');
+      window.print();
+      printArea.classList.add('hidden');
+    };
+
+    window.exportCatalogCSV = function () {
+      const headers = ['Codigo', 'Titulo', 'Autor', 'Secao', 'Estante', 'Prateleira', 'EtiquetaPrateleira', 'ISBN', 'Total', 'Disponivel'];
+      const rows = state.books.map((b) =>
+        [
+          b.codigoInterno,
+          `"${(b.titulo || '').replace(/"/g, '""')}"`,
+          `"${(b.autor || '').replace(/"/g, '""')}"`,
+          `"${(b.secao || '').replace(/"/g, '""')}"`,
+          b.estante,
+          b.prateleira,
+          `"${(b.etiquetaPrateleira || '').replace(/"/g, '""')}"`,
+          b.isbn || '',
+          b.quantidadeTotal || 1,
+          b.quantidadeDisponivel || 0
+        ].join(',')
+      );
+      const csv = [headers.join(','), ...rows].join('\n');
+      downloadFile(csv, 'acervovivo-catalogo.csv', 'text/csv;charset=utf-8;');
+    };
+
+    window.exportCatalogJSON = function () {
+      const payload = JSON.stringify({ sections: state.sections, books: state.books, wishlist: state.wishlist }, null, 2);
+      downloadFile(payload, 'acervovivo-backup.json', 'application/json');
+    };
+
+    function downloadFile(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // =========================================================================
+    // BOOTSTRAP
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      populatePaletteSelector();
+      populateSectionSelects();
+      syncTierOptionsForShelf('form-book-shelf', 'form-book-tier');
+      syncBulkTargetTierOptions();
+      generateNextInternalCode();
+      updateSectionLivePreview();
+      refreshAllViews();
+
+      // Auto-search if opened via spine QR code (?livro=ESP-001)
+      const params = new URLSearchParams(window.location.search);
+      const bookParam = params.get('livro');
+      if (bookParam) {
+        const searchInput = document.getElementById('reader-search-input');
+        if (searchInput) {
+          searchInput.value = bookParam;
+          renderReaderCatalog();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
