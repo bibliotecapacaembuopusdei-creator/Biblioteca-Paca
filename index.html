@@ -528,6 +528,14 @@
         </div>
         <button
           type="button"
+          onclick="switchLibrarianTab('settings'); setTimeout(() => document.getElementById('settings-new-pin')?.focus(), 100);"
+          class="w-full py-2 px-4 rounded-xl bg-forest-light hover:bg-gold/20 text-gold-light border border-gold/30 text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+        >
+          <i data-lucide="key-round" class="w-3.5 h-3.5"></i>
+          <span>Alterar Senha da Equipe</span>
+        </button>
+        <button
+          type="button"
           onclick="exitLibrarianPortal()"
           class="w-full py-2.5 px-4 rounded-xl bg-ivory/10 hover:bg-ivory/20 text-ivory text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
         >
@@ -1295,7 +1303,7 @@
             class="w-full px-4 py-3 rounded-xl bg-parchment border border-sand font-mono text-center text-base tracking-widest uppercase focus:outline-none focus:border-forest"
           />
           <p class="text-[11px] text-ink-muted text-center mt-1.5">
-            PIN padrão inicial: <strong class="font-mono text-forest">BIBLIO2026</strong>
+            Solicite o código de acesso ao responsável pela biblioteca.
           </p>
         </div>
 
@@ -1807,7 +1815,7 @@
       books: [],
       sections: [],
       wishlist: [],
-      staffPin: 'BIBLIO2026',
+      staffPin: 'PACAEMBU26',
       activeSectionFilter: 'ALL',
       aiRecommendedIds: null,
       selectedBookIds: [],
