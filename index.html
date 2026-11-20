@@ -1201,12 +1201,14 @@
     }
 
     async function lookupCoverUrlByIsbn(codes, title = '', author = '') {
-      const cleanAuthor = (author || '').split(',')[0].trim();
+      const cleanAuthor = (author || '').split(',')[0].replace(/^São\s+|^Santo\s+|^Santa\s+/i, '').trim();
+      const shortTitle = (title || '').split(':')[0].split('(')[0].trim();
       const queries = [
         ...codes.map((c) => `isbn:${c}`),
         ...codes.map((c) => `"${c}"`),
-        ...(title && cleanAuthor ? [`"${title}" "${cleanAuthor}"`] : []),
-        ...(title ? [`intitle:"${title}"`] : [])
+        ...(shortTitle && cleanAuthor ? [`intitle:"${shortTitle}" inauthor:"${cleanAuthor}"`] : []),
+        ...(shortTitle && cleanAuthor ? [`"${shortTitle}" "${cleanAuthor}"`] : []),
+        ...(shortTitle ? [`intitle:"${shortTitle}"`] : [])
       ];
 
       // 1. Dispara consultas rápidas no Google Books (CORS liberado e alta cobertura no Brasil)
@@ -2585,6 +2587,10 @@
                   </span>
                   <button type="button" onclick="changeAvail('${esc(b.id)}', -1)" ${avail <= 0 ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-xl bg-cream border border-sand text-xs font-semibold disabled:opacity-40 cursor-pointer">Emprestar</button>
                   <button type="button" onclick="changeAvail('${esc(b.id)}', 1)" ${avail >= total ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-xl bg-cream border border-sand text-xs font-semibold disabled:opacity-40 cursor-pointer">Devolver</button>
+                  <label class="p-2 rounded-xl bg-cream border border-sand cursor-pointer inline-flex items-center justify-center" title="Fotografar Capa Rápida">
+                    <i data-lucide="camera" class="w-4 h-4 ${b.capaUrl ? 'text-emerald-700' : 'text-terracotta'}"></i>
+                    <input type="file" accept="image/*" capture="environment" onchange="quickCaptureBookCover(event, '${esc(b.id)}')" class="hidden" />
+                  </label>
                   <button type="button" onclick="openSpineLabel('${esc(b.id)}')" class="p-2 rounded-xl bg-cream border border-sand cursor-pointer" title="Etiqueta QR"><i data-lucide="qr-code" class="w-4 h-4 text-forest"></i></button>
                   <button type="button" onclick="openEditBook('${esc(b.id)}')" class="p-2 rounded-xl bg-cream border border-sand cursor-pointer" title="Editar"><i data-lucide="pencil" class="w-4 h-4"></i></button>
                   <button type="button" onclick="removeBook('${esc(b.id)}')" class="p-2 rounded-xl bg-cream border border-sand text-terracotta cursor-pointer" title="Excluir"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
@@ -2659,13 +2665,31 @@
       if (sb) await sb.from('livros').upsert(toDbBook(b));
     };
 
-    window.removeBook = async function (bookId) {
-      state.books = state.books.filter((x) => x.id !== bookId);
-      state.selectedIds = state.selectedIds.filter((id) => id !== bookId);
-      saveLocalFallback();
-      refreshAllUI();
-      if (sb) await sb.from('livros').delete().eq('id', bookId);
-      showToast('Livro removido.', 'info');
+    window.quickCaptureBookCover = function (event, bookId) {
+      const file = event.target?.files?.[0];
+      const b = state.books.find((x) => x.id === bookId);
+      if (!file || !b) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = async function () {
+          const maxW = 360;
+          const scale = Math.min(1, maxW / img.width);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          b.capaUrl = canvas.toDataURL('image/jpeg', 0.78);
+          saveLocalFallback();
+          refreshAllUI();
+          if (sb) await sb.from('livros').upsert(toDbBook(b));
+          showToast(`Capa de "${b.titulo}" atualizada!`, 'success');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
     };
 
     window.toggleBookCheck = function (id) {
