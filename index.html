@@ -1120,12 +1120,12 @@
 
       input.value = url || '';
       if (url) {
-        box.innerHTML = `<img src="${esc(url)}" alt="Capa" class="w-full h-full object-cover" />`;
+        box.innerHTML = `<img src="${esc(url)}" alt="Capa" class="w-full h-full object-cover" onerror="clearCoverPreview('${mode}')" />`;
         clearBtn?.classList.remove('hidden');
       } else {
         box.innerHTML = `<i data-lucide="image" class="w-5 h-5"></i><span class="text-[9px] font-mono mt-1">SEM CAPA</span>`;
         clearBtn?.classList.add('hidden');
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
       }
     }
 
@@ -1134,13 +1134,14 @@
     };
 
     window.handleCoverFileUpload = function (event, mode) {
-      const file = event.target.files?.[0];
+      const file = event.target?.files?.[0];
       if (!file) return;
+
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = function (e) {
         const img = new Image();
-        img.onload = () => {
-          const maxW = 320;
+        img.onload = function () {
+          const maxW = 360;
           const scale = Math.min(1, maxW / img.width);
           const canvas = document.createElement('canvas');
           canvas.width = Math.round(img.width * scale);
@@ -1149,24 +1150,64 @@
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.78);
           setCoverPreview(mode, compressedDataUrl);
-          showToast('Foto da capa capturada!', 'success');
+          showToast('Foto da capa capturada e otimizada!', 'success');
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     };
 
-    async function lookupCoverUrlByIsbn(codes) {
+    async function lookupCoverUrlByIsbn(codes, title = '', author = '') {
+      // 1. Open Library Covers API (URL direta de alta disponibilidade por ISBN)
       for (const c of codes) {
         try {
-          const res = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=isbn:${c}&maxResults=1`, 3500);
+          const olCover = `https://covers.openlibrary.org/b/isbn/${c}-M.jpg?default=false`;
+          const check = await fetchWithTimeout(olCover, 3000);
+          if (check.ok) return olCover;
+        } catch {}
+      }
+
+      // 2. Google Books por ISBN exato ou amplo
+      for (const c of codes) {
+        for (const q of [`isbn:${c}`, `"${c}"`]) {
+          try {
+            const res = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=3`, 3500);
+            if (res.ok) {
+              const data = await res.json();
+              const item = (data?.items || []).find((it) => it?.volumeInfo?.imageLinks?.thumbnail || it?.volumeInfo?.imageLinks?.smallThumbnail);
+              const thumb = item?.volumeInfo?.imageLinks?.thumbnail || item?.volumeInfo?.imageLinks?.smallThumbnail;
+              if (thumb) return thumb.replace(/^http:\/\//i, 'https://');
+            }
+          } catch {}
+        }
+      }
+
+      // 3. Mercado Livre Brasil por ISBN (ótimo para editoras católicas/nacionais como Quadrante)
+      for (const c of codes) {
+        try {
+          const res = await fetchWithTimeout(`https://api.mercadolibre.com/sites/MLB/search?q=${c}&limit=3`, 3500);
+          if (res.ok) {
+            const ml = await res.json();
+            const hit = (ml?.results || []).find((r) => r.thumbnail);
+            if (hit?.thumbnail) return hit.thumbnail.replace(/^http:\/\//i, 'https://').replace('-I.jpg', '-O.jpg');
+          }
+        } catch {}
+      }
+
+      // 4. Fallback por Título + Autor no Google Books (caso a edição específica não tenha foto indexada pelo ISBN)
+      if (title) {
+        try {
+          const textQuery = `intitle:${title}${author ? `+inauthor:${author.split(',')[0]}` : ''}`;
+          const res = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(textQuery)}&maxResults=3`, 3500);
           if (res.ok) {
             const data = await res.json();
-            const thumb = data?.items?.[0]?.volumeInfo?.imageLinks?.thumbnail || data?.items?.[0]?.volumeInfo?.imageLinks?.smallThumbnail;
+            const item = (data?.items || []).find((it) => it?.volumeInfo?.imageLinks?.thumbnail || it?.volumeInfo?.imageLinks?.smallThumbnail);
+            const thumb = item?.volumeInfo?.imageLinks?.thumbnail || item?.volumeInfo?.imageLinks?.smallThumbnail;
             if (thumb) return thumb.replace(/^http:\/\//i, 'https://');
           }
         } catch {}
       }
+
       return '';
     }
 
@@ -1226,11 +1267,12 @@
           if (res.ok) {
             const br = await res.json();
             if (br && br.title) {
-              const capaUrl = br.cover_url || (await lookupCoverUrlByIsbn(codes));
+              const authorStr = Array.isArray(br.authors) ? br.authors.join(', ') : (br.authors || '');
+              const capaUrl = br.cover_url || (await lookupCoverUrlByIsbn(codes, br.title, authorStr));
               fillFormFromIsbn({
                 isbn: cleanIsbn,
                 titulo: br.title,
-                autor: Array.isArray(br.authors) ? br.authors.join(', ') : (br.authors || ''),
+                autor: authorStr,
                 resumo: br.synopsis || `Obra publicada por ${br.publisher || 'editora nacional'} (${br.year || ''}).`,
                 palavras: Array.isArray(br.subjects) ? br.subjects.join(', ') : '',
                 capaUrl
