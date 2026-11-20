@@ -566,7 +566,11 @@
                     <p class="text-xs font-bold text-ink">Capa Digital do Livro (Opcional)</p>
                     <p class="text-[11px] text-muted">Preenchida automaticamente ao buscar ISBN ou capturada pela câmera do celular.</p>
                   </div>
-                  <div class="flex items-center gap-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="retryCoverLookup()" class="px-3 py-1.5 rounded-xl bg-ivory hover:bg-gold-soft border border-sand text-ink text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer">
+                      <i data-lucide="image-plus" class="w-3.5 h-3.5 text-terracotta"></i>
+                      <span>Buscar Capa</span>
+                    </button>
                     <label class="px-3 py-1.5 rounded-xl bg-forest text-ivory text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer">
                       <i data-lucide="camera" class="w-3.5 h-3.5 text-gold-light"></i>
                       <span>Fotografar Capa</span>
@@ -1120,7 +1124,7 @@
 
       input.value = url || '';
       if (url) {
-        box.innerHTML = `<img src="${esc(url)}" alt="Capa" class="w-full h-full object-cover" onerror="clearCoverPreview('${mode}')" />`;
+        box.innerHTML = `<img src="${esc(url)}" alt="Capa" referrerpolicy="no-referrer" class="w-full h-full object-cover" onerror="clearCoverPreview('${mode}')" />`;
         clearBtn?.classList.remove('hidden');
       } else {
         box.innerHTML = `<i data-lucide="image" class="w-5 h-5"></i><span class="text-[9px] font-mono mt-1">SEM CAPA</span>`;
@@ -1131,6 +1135,25 @@
 
     window.clearCoverPreview = function (mode) {
       setCoverPreview(mode, '');
+    };
+
+    window.retryCoverLookup = async function () {
+      const isbn = (document.getElementById('create-isbn')?.value || '').replace(/[^0-9Xx]/g, '');
+      const title = document.getElementById('create-title')?.value.trim() || '';
+      const author = document.getElementById('create-author')?.value.trim() || '';
+      if (!isbn && !title) {
+        showToast('Preencha o ISBN ou o Título primeiro para buscar a capa.', 'warning');
+        return;
+      }
+      showToast('Buscando capa na base editorial...', 'info');
+      const codes = isbn ? convertIsbn10And13(isbn) : [];
+      const found = await lookupCoverUrlByIsbn(codes, title, author);
+      if (found) {
+        setCoverPreview('create', found);
+        showToast('Capa encontrada com sucesso!', 'success');
+      } else {
+        showToast('Capa não encontrada online — use "Fotografar Capa" no celular.', 'warning');
+      }
     };
 
     window.handleCoverFileUpload = function (event, mode) {
@@ -1157,53 +1180,52 @@
       reader.readAsDataURL(file);
     };
 
-    async function lookupCoverUrlByIsbn(codes, title = '', author = '') {
-      // 1. Open Library Covers API (URL direta de alta disponibilidade por ISBN)
-      for (const c of codes) {
-        try {
-          const olCover = `https://covers.openlibrary.org/b/isbn/${c}-M.jpg?default=false`;
-          const check = await fetchWithTimeout(olCover, 3000);
-          if (check.ok) return olCover;
-        } catch {}
-      }
-
-      // 2. Google Books por ISBN exato ou amplo
-      for (const c of codes) {
-        for (const q of [`isbn:${c}`, `"${c}"`]) {
-          try {
-            const res = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=3`, 3500);
-            if (res.ok) {
-              const data = await res.json();
-              const item = (data?.items || []).find((it) => it?.volumeInfo?.imageLinks?.thumbnail || it?.volumeInfo?.imageLinks?.smallThumbnail);
-              const thumb = item?.volumeInfo?.imageLinks?.thumbnail || item?.volumeInfo?.imageLinks?.smallThumbnail;
-              if (thumb) return thumb.replace(/^http:\/\//i, 'https://');
-            }
-          } catch {}
-        }
-      }
-
-      // 3. Mercado Livre Brasil por ISBN (ótimo para editoras católicas/nacionais como Quadrante)
-      for (const c of codes) {
-        try {
-          const res = await fetchWithTimeout(`https://api.mercadolibre.com/sites/MLB/search?q=${c}&limit=3`, 3500);
-          if (res.ok) {
-            const ml = await res.json();
-            const hit = (ml?.results || []).find((r) => r.thumbnail);
-            if (hit?.thumbnail) return hit.thumbnail.replace(/^http:\/\//i, 'https://').replace('-I.jpg', '-O.jpg');
+    async function fetchGoogleBooksCover(query) {
+      try {
+        const res = await fetchWithTimeout(
+          `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`,
+          4500
+        );
+        if (!res.ok) return '';
+        const data = await res.json();
+        const items = data?.items || [];
+        for (const it of items) {
+          const links = it?.volumeInfo?.imageLinks;
+          const raw = links?.thumbnail || links?.smallThumbnail || links?.medium;
+          if (raw) {
+            return raw.replace(/^http:\/\//i, 'https://').replace('&edge=curl', '');
           }
-        } catch {}
+        }
+      } catch {}
+      return '';
+    }
+
+    async function lookupCoverUrlByIsbn(codes, title = '', author = '') {
+      const cleanAuthor = (author || '').split(',')[0].trim();
+      const queries = [
+        ...codes.map((c) => `isbn:${c}`),
+        ...codes.map((c) => `"${c}"`),
+        ...(title && cleanAuthor ? [`"${title}" "${cleanAuthor}"`] : []),
+        ...(title ? [`intitle:"${title}"`] : [])
+      ];
+
+      // 1. Dispara consultas rápidas no Google Books (CORS liberado e alta cobertura no Brasil)
+      for (const q of queries) {
+        const thumb = await fetchGoogleBooksCover(q);
+        if (thumb) return thumb;
       }
 
-      // 4. Fallback por Título + Autor no Google Books (caso a edição específica não tenha foto indexada pelo ISBN)
-      if (title) {
+      // 2. Fallback Open Library via JSON API (sem bloqueio CORS de imagem)
+      for (const c of codes) {
         try {
-          const textQuery = `intitle:${title}${author ? `+inauthor:${author.split(',')[0]}` : ''}`;
-          const res = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(textQuery)}&maxResults=3`, 3500);
+          const res = await fetchWithTimeout(
+            `https://openlibrary.org/api/books?bibkeys=ISBN:${c}&format=json&jscmd=data`,
+            3500
+          );
           if (res.ok) {
-            const data = await res.json();
-            const item = (data?.items || []).find((it) => it?.volumeInfo?.imageLinks?.thumbnail || it?.volumeInfo?.imageLinks?.smallThumbnail);
-            const thumb = item?.volumeInfo?.imageLinks?.thumbnail || item?.volumeInfo?.imageLinks?.smallThumbnail;
-            if (thumb) return thumb.replace(/^http:\/\//i, 'https://');
+            const ol = await res.json();
+            const cover = ol[`ISBN:${c}`]?.cover?.medium || ol[`ISBN:${c}`]?.cover?.large;
+            if (cover) return cover;
           }
         } catch {}
       }
