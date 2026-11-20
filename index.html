@@ -61,6 +61,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     body {
@@ -176,10 +177,27 @@
         </div>
 
         <div class="flex items-center gap-2.5 sm:gap-3">
+          <div id="sync-status-pill" class="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-parchment border border-sand text-xs text-ink-muted">
+            <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-gold animate-pulse"></span>
+            <span id="sync-status-label">Conectando à nuvem...</span>
+          </div>
+
           <div class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-parchment border border-sand text-xs text-ink-muted">
             <span class="w-2 h-2 rounded-full bg-forest"></span>
             <span id="reader-header-stats">0 obras catalogadas</span>
           </div>
+
+          <!-- Install PWA App Button -->
+          <button
+            type="button"
+            id="btn-install-pwa"
+            onclick="triggerPwaInstall()"
+            class="hidden inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-light text-gold-light border border-gold/40 text-xs font-semibold transition cursor-pointer shadow-2xs"
+            title="Instalar aplicativo na tela inicial do celular"
+          >
+            <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+            <span>Instalar App</span>
+          </button>
 
           <!-- Discreet Staff Login Trigger -->
           <button
@@ -523,7 +541,10 @@
       <!-- Bottom Return to Reader Portal -->
       <div class="hidden lg:block p-6 border-t border-ivory/10 space-y-3">
         <div class="rounded-2xl bg-forest-light/80 p-3.5 border border-ivory/10 text-xs space-y-1">
-          <p class="text-gold-light font-semibold">Resumo da Biblioteca</p>
+          <div class="flex items-center justify-between">
+            <p class="text-gold-light font-semibold">Resumo da Biblioteca</p>
+            <span id="lib-cloud-badge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-forest text-gold-light border border-gold/30">Nuvem</span>
+          </div>
           <p id="lib-sidebar-summary" class="text-ivory/80">0 títulos • 0 exemplares</p>
         </div>
         <button
@@ -1221,7 +1242,7 @@
                 <input
                   type="text"
                   id="settings-new-pin"
-                  placeholder="Novo PIN (ex: BIBLIO2026)"
+                  placeholder="Novo PIN (ex: PACAEMBU1974)"
                   class="flex-1 px-3.5 py-2.5 rounded-xl bg-parchment border border-sand font-mono text-sm uppercase focus:outline-none focus:border-forest"
                 />
                 <button
@@ -1233,7 +1254,7 @@
                 </button>
               </div>
               <p class="text-[11px] font-mono text-ink-muted">
-                PIN ativo atual: <strong id="settings-current-pin-display" class="text-ink">BIBLIO2026</strong>
+                PIN ativo neste aparelho: <strong id="settings-current-pin-display" class="text-ink">PACAEMBU1974</strong>
               </p>
             </div>
 
@@ -1565,13 +1586,19 @@
   <!-- ======================================================================= -->
   <script>
     // =========================================================================
-    // 1. REAL PHYSICAL ARCHITECTURE (3 BOOKCASES: 17, 18 AND 5 SHELVES)
+    // 1. SUPABASE CLOUD CONFIGURATION & PHYSICAL ARCHITECTURE (3 BOOKCASES)
     // =========================================================================
+    const SUPABASE_URL = 'https://qrowflmddgbevgqlmvrd.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_A4ThiFpkFf-S7oYOmZdmzA_hy1SWBph';
+    const PUBLIC_CATALOG_URL = 'https://bibliotecapacaembuopusdei-creator.github.io/Biblioteca-Paca/';
+
+    const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
     const STORAGE_KEYS = {
-      BOOKS: 'acervovivo_real_books_v1',
-      SECTIONS: 'acervovivo_real_sections_v1',
-      WISHLIST: 'acervovivo_real_wishlist_v1',
-      PIN: 'acervovivo_staff_pin_v1'
+      BOOKS: 'acervovivo_real_books_v2',
+      SECTIONS: 'acervovivo_real_sections_v2',
+      WISHLIST: 'acervovivo_real_wishlist_v2',
+      PIN: 'acervovivo_staff_pin_v2'
     };
 
     const LIBRARY_ESTANTES = {
@@ -1651,6 +1678,18 @@
         bg: 'linear-gradient(155deg, #4B5836 0%, #323B23 100%)',
         accent: '#E8D39E',
         badgeBg: 'bg-lime-50 text-lime-900 border-lime-200'
+      },
+      slate: {
+        label: 'Ardósia Editorial',
+        bg: 'linear-gradient(155deg, #334155 0%, #1E293B 100%)',
+        accent: '#E2E8F0',
+        badgeBg: 'bg-slate-100 text-slate-800 border-slate-300'
+      },
+      plum: {
+        label: 'Ameixa Clássica',
+        bg: 'linear-gradient(155deg, #582C4D 0%, #3A1B32 100%)',
+        accent: '#F3D5B5',
+        badgeBg: 'bg-purple-50 text-purple-900 border-purple-200'
       }
     };
 
@@ -1714,6 +1753,38 @@
       },
       {
         id: 'book-4',
+        codigoInterno: 'ESP-004',
+        isbn: '978-85-7465-112-5',
+        titulo: 'É Cristo que Passa',
+        autor: 'Josemaría Escrivá',
+        secao: 'Vida Espiritual',
+        estante: 'Estante 1',
+        prateleira: 'Prateleira 3',
+        etiquetaPrateleira: 'Josemaría Escrivá',
+        quantidadeTotal: 2,
+        quantidadeDisponivel: 2,
+        resumo: 'Homilias sobre os principais tempos litúrgicos e o encontro com Cristo na vida profissional, familiar e social.',
+        indicacao: 'Para quem deseja unir fé e vida cotidiana ao longo do ano litúrgico.',
+        palavrasChave: 'homilias, liturgia, santificação do trabalho, oração'
+      },
+      {
+        id: 'book-5',
+        codigoInterno: 'ESP-005',
+        isbn: '978-85-7465-150-7',
+        titulo: 'O Temperamento do Caráter',
+        autor: 'Alexandre Havard',
+        secao: 'Vida Espiritual',
+        estante: 'Estante 1',
+        prateleira: 'Prateleira 5',
+        etiquetaPrateleira: 'Alexandre Havard',
+        quantidadeTotal: 2,
+        quantidadeDisponivel: 2,
+        resumo: 'Como conhecer o próprio temperamento e forjar o caráter através das virtudes clássicas da magnanimidade e humildade.',
+        indicacao: 'Indicado para quem busca autoconhecimento, liderança virtuosa e amadurecimento pessoal.',
+        palavrasChave: 'temperamento, caráter, virtudes, liderança, magnanimidade'
+      },
+      {
+        id: 'book-6',
         codigoInterno: 'EDU-001',
         isbn: '978-85-7465-205-4',
         titulo: 'Educar sem Medo',
@@ -1729,7 +1800,7 @@
         palavrasChave: 'filhos, família, pais, educação, formação'
       },
       {
-        id: 'book-5',
+        id: 'book-7',
         codigoInterno: 'HIS-001',
         isbn: '978-85-7302-880-5',
         titulo: '1808',
@@ -1745,7 +1816,7 @@
         palavrasChave: 'brasil, dom joão, história, império, século xix'
       },
       {
-        id: 'book-6',
+        id: 'book-8',
         codigoInterno: 'GRE-001',
         isbn: '978-85-7110-415-0',
         titulo: 'A Trilogia Tebana: Édipo Rei, Édipo em Colono, Antígona',
@@ -1761,7 +1832,7 @@
         palavrasChave: 'grécia antiga, tragédia, sófocles, antígona, clássicos'
       },
       {
-        id: 'book-7',
+        id: 'book-9',
         codigoInterno: 'LIT-001',
         isbn: 'Sem ISBN / Edição Antiga',
         titulo: 'Grande Sertão: Veredas',
@@ -1777,7 +1848,23 @@
         palavrasChave: 'sertão, guimarães rosa, romance, clássicos brasileiros'
       },
       {
-        id: 'book-8',
+        id: 'book-10',
+        codigoInterno: 'LIT-002',
+        isbn: '978-85-254-0634-7',
+        titulo: 'Hamlet',
+        autor: 'William Shakespeare',
+        secao: 'Literatura',
+        estante: 'Estante 3',
+        prateleira: 'Prateleira 2',
+        etiquetaPrateleira: 'Teatro Clássico',
+        quantidadeTotal: 1,
+        quantidadeDisponivel: 1,
+        resumo: 'A célebre tragédia do príncipe da Dinamarca diante da traição, da consciência e do sentido da existência humana.',
+        indicacao: 'Leitura indispensável da literatura universal sobre justiça, dúvida e condição humana.',
+        palavrasChave: 'shakespeare, teatro, tragédia, clássicos universais'
+      },
+      {
+        id: 'book-11',
         codigoInterno: 'FIL-001',
         isbn: '978-85-359-1484-9',
         titulo: 'Ética a Nicômaco',
@@ -1797,17 +1884,10 @@
     const DEFAULT_WISHLIST = [
       {
         id: 'wish-1',
-        titulo: 'O Temperamento do Caráter',
-        autor: 'Alexandre Havard',
-        solicitacoes: 4,
-        data: '18/11/2026'
-      },
-      {
-        id: 'wish-2',
         titulo: 'Confissões',
         autor: 'Santo Agostinho',
         solicitacoes: 3,
-        data: '15/11/2026'
+        data: '18/11/2026'
       }
     ];
 
@@ -1815,18 +1895,122 @@
       books: [],
       sections: [],
       wishlist: [],
-      staffPin: 'PACAEMBU26',
+      staffPin: 'PACAEMBU1974',
       activeSectionFilter: 'ALL',
       aiRecommendedIds: null,
       selectedBookIds: [],
       html5QrCode: null,
-      scannerActive: false
+      scannerActive: false,
+      cloudConnected: false,
+      deferredInstallPrompt: null
     };
 
     // =========================================================================
-    // 2. INITIALIZATION & PERSISTENCE
+    // 2. SUPABASE MAPPERS, CLOUD SYNC & REALTIME SUBSCRIPTIONS
     // =========================================================================
-    function loadState() {
+    function sectionToDb(sec) {
+      return {
+        id: sec.id,
+        nome: sec.nome,
+        sigla: sec.sigla,
+        estante_padrao: sec.estantePadrao,
+        glyph: sec.glyph,
+        palette_key: sec.paletteKey
+      };
+    }
+
+    function sectionFromDb(row) {
+      return {
+        id: row.id,
+        nome: row.nome,
+        sigla: row.sigla,
+        estantePadrao: row.estante_padrao || 'Estante 1',
+        glyph: row.glyph || '✦',
+        paletteKey: row.palette_key || 'forest'
+      };
+    }
+
+    function bookToDb(book) {
+      return {
+        id: book.id,
+        codigo_interno: book.codigoInterno,
+        isbn: book.isbn || 'Sem ISBN / Edição Antiga',
+        titulo: book.titulo,
+        autor: book.autor,
+        secao: book.secao,
+        estante: book.estante,
+        prateleira: book.prateleira,
+        etiqueta_prateleira: book.etiquetaPrateleira || '',
+        quantidade_total: Number(book.quantidadeTotal) || 1,
+        quantidade_disponivel: Number(book.quantidadeDisponivel) ?? 1,
+        resumo: book.resumo || '',
+        indicacao: book.indicacao || '',
+        palavras_chave: book.palavrasChave || ''
+      };
+    }
+
+    function bookFromDb(row) {
+      return {
+        id: row.id,
+        codigoInterno: row.codigo_interno,
+        isbn: row.isbn || 'Sem ISBN / Edição Antiga',
+        titulo: row.titulo,
+        autor: row.autor,
+        secao: row.secao,
+        estante: row.estante,
+        prateleira: row.prateleira,
+        etiquetaPrateleira: row.etiqueta_prateleira || '',
+        quantidadeTotal: Number(row.quantidade_total) || 1,
+        quantidadeDisponivel: Number(row.quantidade_disponivel) ?? 1,
+        resumo: row.resumo || '',
+        indicacao: row.indicacao || '',
+        palavrasChave: row.palavras_chave || ''
+      };
+    }
+
+    function wishToDb(w) {
+      return {
+        id: w.id,
+        titulo: w.titulo,
+        autor: w.autor || 'Autor não informado',
+        solicitacoes: Number(w.solicitacoes) || 1,
+        data: w.data || new Date().toLocaleDateString('pt-BR')
+      };
+    }
+
+    function wishFromDb(row) {
+      return {
+        id: row.id,
+        titulo: row.titulo,
+        autor: row.autor || 'Autor não informado',
+        solicitacoes: Number(row.solicitacoes) || 1,
+        data: row.data || ''
+      };
+    }
+
+    function updateCloudSyncBadge(isOnline, customText = null) {
+      state.cloudConnected = isOnline;
+      const pill = document.getElementById('sync-status-pill');
+      const dot = document.getElementById('sync-status-dot');
+      const label = document.getElementById('sync-status-label');
+      const libBadge = document.getElementById('lib-cloud-badge');
+
+      if (pill && dot && label) {
+        pill.classList.remove('hidden');
+        if (isOnline) {
+          dot.className = 'w-2 h-2 rounded-full bg-emerald-600';
+          label.textContent = customText || 'Sincronizado ao vivo';
+        } else {
+          dot.className = 'w-2 h-2 rounded-full bg-terracotta';
+          label.textContent = customText || 'Modo local (offline)';
+        }
+      }
+      if (libBadge) {
+        libBadge.textContent = isOnline ? 'Ao Vivo' : 'Local';
+      }
+    }
+
+    function loadLocalCache() {
       try {
         const savedSections = localStorage.getItem(STORAGE_KEYS.SECTIONS);
         state.sections = savedSections ? JSON.parse(savedSections) : structuredClone(DEFAULT_SECTIONS);
@@ -1846,17 +2030,222 @@
       }
     }
 
-    function persistState() {
+    function saveLocalCache() {
       try {
         localStorage.setItem(STORAGE_KEYS.BOOKS, JSON.stringify(state.books));
         localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(state.sections));
         localStorage.setItem(STORAGE_KEYS.WISHLIST, JSON.stringify(state.wishlist));
         localStorage.setItem(STORAGE_KEYS.PIN, state.staffPin);
       } catch (err) {
-        console.warn('Erro ao salvar no navegador:', err);
+        console.warn('Erro ao gravar cache local:', err);
       }
     }
 
+    async function syncFromSupabase(seedIfEmpty = false) {
+      if (!sb) {
+        updateCloudSyncBadge(false);
+        return;
+      }
+
+      try {
+        const [secRes, booksRes, wishRes] = await Promise.all([
+          sb.from('secoes').select('*').order('nome', { ascending: true }),
+          sb.from('livros').select('*').order('criado_em', { ascending: false }),
+          sb.from('pedidos_compra').select('*').order('solicitacoes', { ascending: false })
+        ]);
+
+        if (secRes.error || booksRes.error || wishRes.error) {
+          throw secRes.error || booksRes.error || wishRes.error;
+        }
+
+        let cloudSections = (secRes.data || []).map(sectionFromDb);
+        let cloudBooks = (booksRes.data || []).map(bookFromDb);
+        let cloudWishlist = (wishRes.data || []).map(wishFromDb);
+
+        if (seedIfEmpty && cloudSections.length === 0 && cloudBooks.length === 0) {
+          await sb.from('secoes').upsert(DEFAULT_SECTIONS.map(sectionToDb));
+          await sb.from('livros').upsert(DEFAULT_BOOKS.map(bookToDb));
+          await sb.from('pedidos_compra').upsert(DEFAULT_WISHLIST.map(wishToDb));
+          cloudSections = structuredClone(DEFAULT_SECTIONS);
+          cloudBooks = structuredClone(DEFAULT_BOOKS);
+          cloudWishlist = structuredClone(DEFAULT_WISHLIST);
+        }
+
+        if (cloudSections.length > 0) state.sections = cloudSections;
+        state.books = cloudBooks;
+        state.wishlist = cloudWishlist;
+
+        saveLocalCache();
+        updateCloudSyncBadge(true);
+        refreshAllViews();
+      } catch (err) {
+        console.warn('Falha ao conectar com Supabase, mantendo cache local:', err);
+        updateCloudSyncBadge(false);
+      }
+    }
+
+    function subscribeToSupabaseRealtime() {
+      if (!sb) return;
+      sb.channel('acervo-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'livros' }, () => {
+          syncFromSupabase(false);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'secoes' }, () => {
+          syncFromSupabase(false);
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos_compra' }, () => {
+          syncFromSupabase(false);
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            updateCloudSyncBadge(true, 'Sincronizado ao vivo');
+          }
+        });
+    }
+
+    async function cloudUpsertBook(book) {
+      saveLocalCache();
+      if (!sb) return;
+      const { error } = await sb.from('livros').upsert(bookToDb(book));
+      if (error) {
+        console.error('Erro ao salvar livro na nuvem:', error);
+        showToast('Salvo localmente, mas houve falha ao enviar para a nuvem.', 'warning');
+      }
+    }
+
+    async function cloudDeleteBook(bookId) {
+      saveLocalCache();
+      if (!sb) return;
+      const { error } = await sb.from('livros').delete().eq('id', bookId);
+      if (error) console.error('Erro ao remover livro na nuvem:', error);
+    }
+
+    async function cloudUpsertSection(sec) {
+      saveLocalCache();
+      if (!sb) return;
+      const { error } = await sb.from('secoes').upsert(sectionToDb(sec));
+      if (error) console.error('Erro ao salvar seção na nuvem:', error);
+    }
+
+    async function cloudDeleteSection(secId) {
+      saveLocalCache();
+      if (!sb) return;
+      const { error } = await sb.from('secoes').delete().eq('id', secId);
+      if (error) console.error('Erro ao remover seção na nuvem:', error);
+    }
+
+    async function cloudUpsertWish(wish) {
+      saveLocalCache();
+      if (!sb) return;
+      const { error } = await sb.from('pedidos_compra').upsert(wishToDb(wish));
+      if (error) console.error('Erro ao salvar pedido na nuvem:', error);
+    }
+
+    async function cloudDeleteWish(wishId) {
+      saveLocalCache();
+      if (!sb) return;
+      const { error } = await sb.from('pedidos_compra').delete().eq('id', wishId);
+      if (error) console.error('Erro ao remover pedido na nuvem:', error);
+    }
+
+    // =========================================================================
+    // 3. INSTALLABLE PWA (DYNAMIC MANIFEST & SERVICE WORKER FOR GITHUB PAGES)
+    // =========================================================================
+    function setupInstallablePWA() {
+      try {
+        const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#17382A"/><rect x="36" y="36" width="440" height="440" rx="88" fill="none" stroke="#DFB872" stroke-width="14"/><path d="M164 136h152c22 0 40 18 40 40v184c-14-10-30-16-48-16H164c-18 0-32 10-32 24V168c0-18 14-32 32-32z" fill="#FAF6EE"/><path d="M196 196h112M196 244h112M196 292h72" stroke="#17382A" stroke-width="18" stroke-linecap="round"/></svg>`;
+        const iconUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgIcon)}`;
+
+        const manifestObj = {
+          name: 'AcervoVivo — Biblioteca Pacaembu',
+          short_name: 'AcervoVivo',
+          description: 'Curadoria Literária & Localização nas Estantes',
+          start_url: window.location.href.split('?')[0],
+          scope: window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1),
+          display: 'standalone',
+          orientation: 'portrait-primary',
+          background_color: '#FAF6EE',
+          theme_color: '#17382A',
+          icons: [
+            { src: iconUrl, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
+            { src: iconUrl, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+          ]
+        };
+
+        const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/manifest+json' });
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = URL.createObjectURL(manifestBlob);
+        document.head.appendChild(manifestLink);
+
+        const appleMeta = document.createElement('meta');
+        appleMeta.name = 'apple-mobile-web-app-capable';
+        appleMeta.content = 'yes';
+        document.head.appendChild(appleMeta);
+
+        const themeMeta = document.createElement('meta');
+        themeMeta.name = 'theme-color';
+        themeMeta.content = '#17382A';
+        document.head.appendChild(themeMeta);
+
+        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+          const swCode = `
+            self.addEventListener('install', (e) => self.skipWaiting());
+            self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+            self.addEventListener('fetch', (e) => {
+              e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+            });
+          `;
+          const swBlob = new Blob([swCode], { type: 'application/javascript' });
+          navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('PWA setup aviso:', err);
+      }
+
+      const installBtn = document.getElementById('btn-install-pwa');
+      const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+      if (isIos && !isStandalone && installBtn) {
+        installBtn.classList.remove('hidden');
+      }
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        state.deferredInstallPrompt = e;
+        if (installBtn) installBtn.classList.remove('hidden');
+      });
+
+      window.addEventListener('appinstalled', () => {
+        state.deferredInstallPrompt = null;
+        if (installBtn) installBtn.classList.add('hidden');
+        showToast('Aplicativo AcervoVivo instalado na tela inicial!', 'success');
+      });
+    }
+
+    window.triggerPwaInstall = async function () {
+      if (state.deferredInstallPrompt) {
+        state.deferredInstallPrompt.prompt();
+        const choice = await state.deferredInstallPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          state.deferredInstallPrompt = null;
+          document.getElementById('btn-install-pwa')?.classList.add('hidden');
+        }
+        return;
+      }
+
+      const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+      if (isIos) {
+        showToast('No iPhone/iPad: toque em Compartilhar (quadrado com seta) e escolha "Adicionar à Tela de Início".', 'info');
+      } else {
+        showToast('No menu do navegador (⋮), toque em "Instalar aplicativo" ou "Adicionar à tela inicial".', 'info');
+      }
+    };
+
+    // =========================================================================
+    // 4. HELPERS & UI REFRESH
+    // =========================================================================
     function normalizeText(str) {
       return (str || '')
         .toString()
@@ -1913,7 +2302,7 @@
       container.appendChild(toast);
       setTimeout(() => {
         if (toast.parentElement) toast.remove();
-      }, 4200);
+      }, 4500);
     }
 
     function openModal(id) {
@@ -2004,7 +2393,7 @@
     }
 
     // =========================================================================
-    // 3. READER PORTAL: SEARCH, AI ADVISOR, BOOK CARDS & 3-BOOKCASE MAP
+    // 5. READER PORTAL: SEARCH, AI ADVISOR, BOOK CARDS & 3-BOOKCASE MAP
     // =========================================================================
     function renderReaderSectionPills() {
       const container = document.getElementById('reader-section-pills');
@@ -2123,7 +2512,6 @@
               class="group rounded-3xl bg-ivory border border-sand hover:border-gold p-5 flex flex-col justify-between gap-4 shadow-xs hover:shadow-xl transition cursor-pointer"
             >
               <div class="space-y-4">
-                <!-- Top Row: Book Jacket + Location Pill -->
                 <div class="flex items-start gap-4">
                   <div
                     class="book-jacket w-20 h-28 rounded-r-xl rounded-l-sm p-2.5 flex flex-col justify-between text-ivory shrink-0"
@@ -2165,7 +2553,6 @@
                   </div>
                 </div>
 
-                <!-- Title, Author & Reader Hook -->
                 <div class="space-y-1.5">
                   <h3 class="font-serif text-xl font-bold text-ink group-hover:text-forest leading-snug line-clamp-2 transition">
                     ${escapeHtml(book.titulo)}
@@ -2256,7 +2643,7 @@
       renderReaderCatalog();
     };
 
-    window.submitReaderBookRequest = function () {
+    window.submitReaderBookRequest = async function () {
       const titleInput = document.getElementById('wish-title-input');
       const authorInput = document.getElementById('wish-author-input');
       const titulo = titleInput?.value.trim();
@@ -2268,23 +2655,26 @@
       }
 
       const existing = state.wishlist.find((w) => normalizeText(w.titulo) === normalizeText(titulo));
+      let targetWish;
       if (existing) {
         existing.solicitacoes += 1;
+        targetWish = existing;
       } else {
-        state.wishlist.unshift({
+        targetWish = {
           id: `wish-${Date.now()}`,
           titulo,
           autor,
           solicitacoes: 1,
           data: new Date().toLocaleDateString('pt-BR')
-        });
+        };
+        state.wishlist.unshift(targetWish);
       }
 
-      persistState();
       updateStatsSummary();
       if (titleInput) titleInput.value = '';
       if (authorInput) authorInput.value = '';
-      showToast(`Pedido registrado! "${titulo}" foi enviado para a lista de compras da equipe.`, 'success');
+      await cloudUpsertWish(targetWish);
+      showToast(`Pedido registrado na nuvem! "${titulo}" foi enviado para a lista de compras da equipe.`, 'success');
     };
 
     // Architectural Modal with 3 Real Bookcases (17, 18, 5 shelves)
@@ -2345,7 +2735,6 @@
         Dirija-se à <strong>${escapeHtml(estCfg.titulo)}</strong> (${escapeHtml(estCfg.descricao)}) e localize a <strong>${escapeHtml(book.prateleira)}</strong> (lombada <strong>${escapeHtml(book.codigoInterno)}</strong>).${tagInstruction}
       `;
 
-      // Render 3 Bookcase Cards
       const estantesGrid = document.getElementById('architectural-estantes-grid');
       estantesGrid.innerHTML = ESTANTES_LIST.map((estName) => {
         const cfg = LIBRARY_ESTANTES[estName];
@@ -2369,12 +2758,10 @@
         `;
       }).join('');
 
-      // Render Shelves Diagram Inside Active Bookcase
       const diagram = document.getElementById('architectural-shelves-diagram');
       const targetNum = parseInt((book.prateleira || 'Prateleira 1').replace(/\D/g, ''), 10) || 1;
 
       if (estCfg.cols === 1) {
-        // Estante 3: 5 wide shelves
         let rowsHtml = '<div class="space-y-1.5">';
         for (let p = 1; p <= estCfg.prateleirasCount; p++) {
           const active = p === targetNum;
@@ -2392,7 +2779,6 @@
         rowsHtml += '</div>';
         diagram.innerHTML = rowsHtml;
       } else {
-        // Estante 1 (17 shelves + 1 bottom-left box niche) or Estante 2 (18 shelves)
         let cellsHtml = '<div class="grid grid-cols-3 gap-1.5">';
         let shelfCounter = 1;
         const totalCells = estCfg.cols * estCfg.rows;
@@ -2427,7 +2813,7 @@
     };
 
     // =========================================================================
-    // 4. LIBRARIAN AUTHENTICATION & TAB NAVIGATION
+    // 6. LIBRARIAN AUTHENTICATION & TAB NAVIGATION
     // =========================================================================
     window.openStaffLoginModal = function () {
       const input = document.getElementById('staff-pin-input');
@@ -2488,14 +2874,14 @@
         return;
       }
       state.staffPin = newPin;
-      persistState();
+      saveLocalCache();
       document.getElementById('settings-current-pin-display').textContent = newPin;
       document.getElementById('settings-new-pin').value = '';
-      showToast(`Novo PIN institucional salvo: ${newPin}`, 'success');
+      showToast(`Novo PIN salvo neste navegador: ${newPin}`, 'success');
     };
 
     // =========================================================================
-    // 5. CAPTURE & CATALOGING (ISBN, COVER PHOTO & AI ENRICHMENT)
+    // 7. CAPTURE & CATALOGING (ISBN, COVER PHOTO & AI ENRICHMENT)
     // =========================================================================
     function computeNextSpineCodeForSection(sectionName, ignoreBookId = null) {
       const secCfg = getSectionConfig(sectionName);
@@ -2564,6 +2950,20 @@
             document.getElementById('form-book-recommendation').value = `Obra recomendada para leitores interessados em ${info.title} e nos temas abordados por ${(info.authors || ['este autor'])[0]}.`;
           }
           showToast('Dados preenchidos pelo ISBN! Confira a estante e prateleira.', 'success');
+          return;
+        }
+
+        // Fallback to Open Library API
+        const olRes = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${raw}&format=json&jscmd=data`);
+        const olData = await olRes.json();
+        const bookData = olData[`ISBN:${raw}`];
+        if (bookData) {
+          document.getElementById('form-book-title').value = bookData.title || '';
+          document.getElementById('form-book-author').value = (bookData.authors || []).map((a) => a.name).join(', ');
+          document.getElementById('form-book-isbn').value = raw;
+          document.getElementById('form-book-no-isbn').checked = false;
+          document.getElementById('form-book-isbn').disabled = false;
+          showToast('Livro encontrado na Open Library! Complete o resumo e salve.', 'success');
         } else {
           document.getElementById('form-book-isbn').value = raw;
           showToast('ISBN não encontrado na base online. Preencha título/autor ou use a foto da capa.', 'warning');
@@ -2627,7 +3027,6 @@
         previewImg.src = e.target.result;
         previewBox.classList.remove('hidden');
 
-        // Infer title hint from filename when available
         const cleanName = file.name
           .replace(/\.[^/.]+$/, '')
           .replace(/[-_]+/g, ' ')
@@ -2680,7 +3079,7 @@
       handleSectionChangeInCaptureForm();
     };
 
-    window.handleSaveNewBook = function (event) {
+    window.handleSaveNewBook = async function (event) {
       event.preventDefault();
       const titulo = document.getElementById('form-book-title').value.trim();
       const autor = document.getElementById('form-book-author').value.trim();
@@ -2699,7 +3098,7 @@
       const palavrasChave = document.getElementById('form-book-keywords').value.trim();
       const wishId = document.getElementById('form-wishlist-id').value;
 
-      state.books.unshift({
+      const newBook = {
         id: `book-${Date.now()}`,
         codigoInterno,
         isbn,
@@ -2714,21 +3113,24 @@
         resumo,
         indicacao,
         palavrasChave
-      });
+      };
+
+      state.books.unshift(newBook);
+      await cloudUpsertBook(newBook);
 
       if (wishId) {
         state.wishlist = state.wishlist.filter((w) => w.id !== wishId);
+        await cloudDeleteWish(wishId);
       }
 
-      persistState();
       resetCaptureForm();
       refreshAllViews();
-      showToast(`"${titulo}" (${codigoInterno}) catalogado em ${estante} • ${prateleira}!`, 'success');
+      showToast(`"${titulo}" (${codigoInterno}) salvo ao vivo em ${estante} • ${prateleira}!`, 'success');
       switchLibrarianTab('inventory');
     };
 
     // =========================================================================
-    // 6. INVENTORY MANAGEMENT, INLINE LOCATION & BULK MOVE
+    // 8. INVENTORY MANAGEMENT, INLINE LOCATION & BULK MOVE
     // =========================================================================
     function getFilteredInventoryBooks() {
       const q = normalizeText(document.getElementById('lib-inventory-search')?.value || '');
@@ -2942,18 +3344,18 @@
       lucide.createIcons();
     };
 
-    window.handleInlineBookSectionChange = function (bookId, newSection) {
+    window.handleInlineBookSectionChange = async function (bookId, newSection) {
       const book = state.books.find((b) => b.id === bookId);
       if (!book || book.secao === newSection) return;
 
       book.secao = newSection;
       book.codigoInterno = computeNextSpineCodeForSection(newSection, book.id);
-      persistState();
       refreshAllViews();
+      await cloudUpsertBook(book);
       showToast(`Seção alterada para "${newSection}" (${book.codigoInterno}).`, 'success');
     };
 
-    window.handleInlineBookLocationChange = function (bookId, field, newValue) {
+    window.handleInlineBookLocationChange = async function (bookId, field, newValue) {
       const book = state.books.find((b) => b.id === bookId);
       if (!book || (book[field] || '') === newValue) return;
 
@@ -2965,38 +3367,38 @@
         }
       }
 
-      persistState();
       refreshAllViews();
-      showToast(`Localização atualizada: ${book.estante} • ${book.prateleira}.`, 'success');
+      await cloudUpsertBook(book);
+      showToast(`Localização atualizada ao vivo: ${book.estante} • ${book.prateleira}.`, 'success');
     };
 
-    window.adjustBookAvailability = function (bookId, delta) {
+    window.adjustBookAvailability = async function (bookId, delta) {
       const book = state.books.find((b) => b.id === bookId);
       if (!book) return;
       const next = Math.max(0, Math.min(book.quantidadeTotal || 1, (book.quantidadeDisponivel || 0) + delta));
       book.quantidadeDisponivel = next;
-      persistState();
       refreshAllViews();
-      showToast(delta < 0 ? 'Empréstimo registrado.' : 'Devolução registrada!', 'info');
+      await cloudUpsertBook(book);
+      showToast(delta < 0 ? 'Empréstimo registrado ao vivo.' : 'Devolução registrada ao vivo!', 'info');
     };
 
-    window.adjustBookTotalCopies = function (bookId, delta) {
+    window.adjustBookTotalCopies = async function (bookId, delta) {
       const book = state.books.find((b) => b.id === bookId);
       if (!book) return;
       book.quantidadeTotal = Math.max(1, (book.quantidadeTotal || 1) + delta);
       book.quantidadeDisponivel = Math.max(0, (book.quantidadeDisponivel || 0) + delta);
-      persistState();
       refreshAllViews();
+      await cloudUpsertBook(book);
       showToast(`Total de exemplares atualizado para ${book.quantidadeTotal}.`, 'success');
     };
 
-    window.deleteBook = function (bookId) {
+    window.deleteBook = async function (bookId) {
       const book = state.books.find((b) => b.id === bookId);
       if (!book) return;
       state.books = state.books.filter((b) => b.id !== bookId);
       state.selectedBookIds = state.selectedBookIds.filter((id) => id !== bookId);
-      persistState();
       refreshAllViews();
+      await cloudDeleteBook(bookId);
       showToast(`"${book.titulo}" removido do acervo.`, 'info');
     };
 
@@ -3058,7 +3460,7 @@
       }
     };
 
-    window.executeBulkMoveBooks = function () {
+    window.executeBulkMoveBooks = async function () {
       if (state.selectedBookIds.length === 0) return;
 
       const targetSection = document.getElementById('bulk-target-section').value;
@@ -3071,7 +3473,7 @@
         return;
       }
 
-      const movedCount = state.selectedBookIds.length;
+      const updatedBooks = [];
       state.selectedBookIds.forEach((id) => {
         const book = state.books.find((b) => b.id === id);
         if (!book) return;
@@ -3096,13 +3498,19 @@
         if (targetShelfTag) {
           book.etiquetaPrateleira = targetShelfTag;
         }
+        updatedBooks.push(book);
       });
 
+      const movedCount = updatedBooks.length;
       state.selectedBookIds = [];
       document.getElementById('bulk-target-shelf-tag').value = '';
-      persistState();
+      saveLocalCache();
       refreshAllViews();
-      showToast(`${movedCount} ${movedCount === 1 ? 'obra movida' : 'obras movidas'} com sucesso!`, 'success');
+
+      if (sb && updatedBooks.length > 0) {
+        await sb.from('livros').upsert(updatedBooks.map(bookToDb));
+      }
+      showToast(`${movedCount} ${movedCount === 1 ? 'obra movida' : 'obras movidas'} ao vivo!`, 'success');
     };
 
     // Full Edit Modal
@@ -3125,7 +3533,7 @@
       openModal('modal-edit-book');
     };
 
-    window.handleSaveEditBook = function (event) {
+    window.handleSaveEditBook = async function (event) {
       event.preventDefault();
       const id = document.getElementById('edit-book-id').value;
       const book = state.books.find((b) => b.id === id);
@@ -3143,14 +3551,14 @@
       book.indicacao = document.getElementById('edit-book-recommendation').value.trim();
       book.palavrasChave = document.getElementById('edit-book-keywords').value.trim();
 
-      persistState();
       refreshAllViews();
       closeModal('modal-edit-book');
-      showToast('Alterações salvas com sucesso!', 'success');
+      await cloudUpsertBook(book);
+      showToast('Alterações salvas ao vivo com sucesso!', 'success');
     };
 
     // =========================================================================
-    // 7. MANAGE SECTIONS (CREATE, EDIT, LIVE PREVIEW & SAFE DELETE)
+    // 9. MANAGE SECTIONS (CREATE, EDIT, LIVE PREVIEW & SAFE DELETE)
     // =========================================================================
     function populatePaletteSelector() {
       const select = document.getElementById('sec-form-palette');
@@ -3216,7 +3624,7 @@
       updateSectionLivePreview();
     };
 
-    window.handleSaveSection = function (event) {
+    window.handleSaveSection = async function (event) {
       event.preventDefault();
       const id = document.getElementById('sec-form-id').value;
       const nome = document.getElementById('sec-form-name').value.trim();
@@ -3241,33 +3649,40 @@
         existing.glyph = glyph;
         existing.paletteKey = paletteKey;
 
+        const affectedBooks = [];
         state.books.forEach((b) => {
           if (b.secao === oldName) {
             b.secao = nome;
             if (shouldUpdateCodes && oldSigla !== sigla) {
               b.codigoInterno = b.codigoInterno.replace(new RegExp(`^${oldSigla}-`, 'i'), `${sigla}-`);
             }
+            affectedBooks.push(b);
           }
         });
 
-        showToast(`Seção "${nome}" atualizada!`, 'success');
+        await cloudUpsertSection(existing);
+        if (sb && affectedBooks.length > 0) {
+          await sb.from('livros').upsert(affectedBooks.map(bookToDb));
+        }
+        showToast(`Seção "${nome}" atualizada ao vivo!`, 'success');
       } else {
         if (state.sections.some((s) => normalizeText(s.nome) === normalizeText(nome))) {
           showToast('Já existe uma seção com este nome.', 'warning');
           return;
         }
-        state.sections.push({
+        const newSec = {
           id: `sec-${Date.now()}`,
           nome,
           sigla,
           estantePadrao,
           glyph,
           paletteKey
-        });
-        showToast(`Nova seção "${nome}" (${sigla}) criada!`, 'success');
+        };
+        state.sections.push(newSec);
+        await cloudUpsertSection(newSec);
+        showToast(`Nova seção "${nome}" (${sigla}) criada ao vivo!`, 'success');
       }
 
-      persistState();
       resetSectionForm();
       refreshAllViews();
     };
@@ -3357,29 +3772,35 @@
       openModal('modal-delete-section');
     };
 
-    window.confirmDeleteSection = function () {
+    window.confirmDeleteSection = async function () {
       const secId = document.getElementById('delete-sec-id').value;
       const sec = state.sections.find((s) => s.id === secId);
       if (!sec) return;
 
       const targetName = document.getElementById('delete-sec-target')?.value;
+      const movedBooks = [];
       state.books.forEach((b) => {
         if (b.secao === sec.nome && targetName) {
           b.secao = targetName;
+          movedBooks.push(b);
         }
       });
 
       state.sections = state.sections.filter((s) => s.id !== secId);
       if (state.activeSectionFilter === sec.nome) state.activeSectionFilter = 'ALL';
 
-      persistState();
       closeModal('modal-delete-section');
       refreshAllViews();
+
+      if (sb && movedBooks.length > 0) {
+        await sb.from('livros').upsert(movedBooks.map(bookToDb));
+      }
+      await cloudDeleteSection(secId);
       showToast(`Seção "${sec.nome}" removida.`, 'info');
     };
 
     // =========================================================================
-    // 8. WISHLIST, LABELS & QR POSTER
+    // 10. WISHLIST, LABELS & QR POSTER
     // =========================================================================
     window.renderLibrarianWishlist = function () {
       const container = document.getElementById('lib-wishlist-container');
@@ -3445,10 +3866,10 @@
       showToast('Dados preenchidos na ficha! Escolha a estante e a prateleira.', 'info');
     };
 
-    window.removeWishlistItem = function (wishId) {
+    window.removeWishlistItem = async function (wishId) {
       state.wishlist = state.wishlist.filter((w) => w.id !== wishId);
-      persistState();
       refreshAllViews();
+      await cloudDeleteWish(wishId);
     };
 
     window.openLabelModal = function (bookId) {
@@ -3461,7 +3882,11 @@
 
       const qrBox = document.getElementById('spine-label-qr');
       qrBox.innerHTML = '';
-      const targetUrl = `${window.location.origin}${window.location.pathname}?livro=${encodeURIComponent(book.codigoInterno)}`;
+      const baseUrl = window.location.protocol.startsWith('http')
+        ? `${window.location.origin}${window.location.pathname}`
+        : PUBLIC_CATALOG_URL;
+      const targetUrl = `${baseUrl}?livro=${encodeURIComponent(book.codigoInterno)}`;
+
       new QRCode(qrBox, {
         text: targetUrl,
         width: 96,
@@ -3487,7 +3912,9 @@
       const box = document.getElementById('entrance-qr-box');
       if (!box) return;
       box.innerHTML = '';
-      const catalogUrl = `${window.location.origin}${window.location.pathname}`;
+      const catalogUrl = window.location.protocol.startsWith('http')
+        ? `${window.location.origin}${window.location.pathname}`
+        : PUBLIC_CATALOG_URL;
       new QRCode(box, {
         text: catalogUrl,
         width: 150,
@@ -3503,7 +3930,7 @@
       const qrHtml = document.getElementById('entrance-qr-box')?.innerHTML || '';
       printArea.innerHTML = `
         <div style="border: 3px solid #17382A; border-radius: 24px; padding: 40px; text-align: center; max-width: 480px; margin: 20px auto; font-family: Georgia, serif;">
-          <p style="font-family: monospace; font-size: 13px; letter-spacing: 2px; color: #B85A34; font-weight: bold;">ACERVOVIVO • BIBLIOTECA</p>
+          <p style="font-family: monospace; font-size: 13px; letter-spacing: 2px; color: #B85A34; font-weight: bold;">ACERVOVIVO • BIBLIOTECA PACAEMBU</p>
           <h1 style="font-size: 36px; color: #17382A; margin: 12px 0;">Procurando um livro?</h1>
           <p style="font-family: sans-serif; font-size: 15px; color: #333; line-height: 1.5; margin-bottom: 24px;">
             Aponte a câmera do seu celular para o QR Code abaixo e consulte títulos, resumos e a prateleira exata nas Estantes 1, 2 e 3.
@@ -3554,8 +3981,9 @@
     // =========================================================================
     // BOOTSTRAP
     // =========================================================================
-    window.addEventListener('DOMContentLoaded', () => {
-      loadState();
+    window.addEventListener('DOMContentLoaded', async () => {
+      loadLocalCache();
+      setupInstallablePWA();
       populatePaletteSelector();
       populateSectionSelects();
       syncTierOptionsForShelf('form-book-shelf', 'form-book-tier');
@@ -3563,6 +3991,10 @@
       generateNextInternalCode();
       updateSectionLivePreview();
       refreshAllViews();
+
+      // Connect to Supabase Cloud & Realtime
+      await syncFromSupabase(true);
+      subscribeToSupabaseRealtime();
 
       // Auto-search if opened via spine QR code (?livro=ESP-001)
       const params = new URLSearchParams(window.location.search);
