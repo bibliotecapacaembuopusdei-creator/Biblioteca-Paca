@@ -1164,14 +1164,14 @@
       reader.onload = function (e) {
         const img = new Image();
         img.onload = function () {
-          const maxW = 360;
+          const maxW = 280;
           const scale = Math.min(1, maxW / img.width);
           const canvas = document.createElement('canvas');
           canvas.width = Math.round(img.width * scale);
           canvas.height = Math.round(img.height * scale);
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.78);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.72);
           setCoverPreview(mode, compressedDataUrl);
           showToast('Foto da capa capturada e otimizada!', 'success');
         };
@@ -1766,24 +1766,24 @@
         body.innerHTML = `
           <p class="font-bold text-forest">Como instalar no iPhone ou iPad (Safari):</p>
           <ol class="list-decimal pl-5 space-y-2">
-            <li>Toque no botão <strong>Compartilhar</strong> (ícone de quadrado com uma seta para cima na barra do Safari).</li>
-            <li>Role as opções para baixo e toque em <strong>"Adicionar à Tela de Início"</strong>.</li>
-            <li>Confirme o nome <strong>AcervoVivo</strong> e toque em <strong>Adicionar</strong> no canto superior direito.</li>
+            <li>Toque no botão <strong>Compartilhar</strong> (ícone de quadrado com seta para cima na barra do Safari).</li>
+            <li>Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong>.</li>
+            <li>Confirme o nome <strong>AcervoVivo</strong> e toque em <strong>Adicionar</strong>. O ícone aparecerá na sua tela inicial (você pode arrastá-lo para a barra inferior principal).</li>
           </ol>
         `;
       } else if (isAndroid) {
         body.innerHTML = `
           <p class="font-bold text-forest">Como instalar no Android (Chrome):</p>
           <ol class="list-decimal pl-5 space-y-2">
-            <li>Toque nos <strong>3 pontinhos (⋮)</strong> no canto superior direito do navegador.</li>
-            <li>Toque em <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong>.</li>
-            <li>Confirme para criar o ícone do <strong>AcervoVivo</strong> no seu celular.</li>
+            <li>Toque nos <strong>3 pontinhos (⋮)</strong> no canto superior direito do Chrome.</li>
+            <li>Toque em <strong>"Instalar aplicativo"</strong> (se aparecer) ou <strong>"Adicionar à tela inicial"</strong>.</li>
+            <li>O ícone do <strong>AcervoVivo</strong> será criado na sua <strong>Tela Inicial</strong> (atalhos web no Android ficam na Tela Inicial e podem ser arrastados para a barra inferior principal).</li>
           </ol>
         `;
       } else {
         body.innerHTML = `
           <p class="font-bold text-forest">Como instalar no Computador (Chrome / Edge):</p>
-          <p>Clique no ícone de <strong>Instalar</strong> na barra de endereço (canto direito, ao lado da estrela de favoritos) ou abra o menu do navegador e selecione <strong>"Instalar AcervoVivo"</strong>.</p>
+          <p>Clique no ícone de <strong>Instalar</strong> na barra de endereço (canto direito) ou abra o menu do navegador e selecione <strong>"Instalar AcervoVivo"</strong>.</p>
         `;
       }
 
@@ -2464,29 +2464,55 @@
     }
 
     window.refreshCreateCode = function () {
-      const sec = document.getElementById('create-section')?.value;
-      document.getElementById('create-code').value = nextCodeForSection(sec);
+      const secName = document.getElementById('create-section')?.value;
+      const codeInput = document.getElementById('create-code');
+      if (secName && codeInput) codeInput.value = nextCodeForSection(secName);
     };
 
     window.onCreateSectionChange = function () {
       const secName = document.getElementById('create-section')?.value;
-      const cfg = getSectionObj(secName);
+      const sec = getSectionObj(secName);
       const estEl = document.getElementById('create-estante');
-      if (estEl && ESTANTES_CONFIG[cfg.estantePadrao]) {
-        estEl.value = cfg.estantePadrao;
+      if (estEl && sec.estantePadrao) {
+        estEl.value = sec.estantePadrao;
         populatePrateleiraSelect('create-estante', 'create-prateleira');
       }
       refreshCreateCode();
     };
 
     window.resetCreateForm = function () {
-      document.getElementById('book-create-form').reset();
+      document.getElementById('book-create-form')?.reset();
       document.getElementById('create-wish-id').value = '';
       document.getElementById('isbn-search-input').value = '';
-      document.getElementById('isbn-search-status').classList.add('hidden');
+      document.getElementById('isbn-search-status')?.classList.add('hidden');
       setCoverPreview('create', '');
-      onCreateSectionChange();
+      populatePrateleiraSelect('create-estante', 'create-prateleira');
+      refreshCreateCode();
     };
+
+    async function saveBookToSupabase(bookObj) {
+      if (!sb) return { ok: false, error: 'Supabase não conectado' };
+      const payload = toDbBook(bookObj);
+      let { error } = await sb.from('livros').upsert(payload);
+
+      // Se a coluna capa_url ainda não foi criada no banco, salva os dados do livro sem bloquear
+      if (error && /capa_url/i.test(error.message || '')) {
+        const { capa_url, ...withoutCover } = payload;
+        const retry = await sb.from('livros').upsert(withoutCover);
+        if (!retry.error) {
+          showToast('Livro salvo no banco! Rode o SQL da capa no Supabase para salvar fotos.', 'warning');
+          return { ok: true };
+        }
+        error = retry.error;
+      }
+
+      if (error) {
+        console.error('Erro ao salvar livro no Supabase:', error);
+        showToast(`Erro ao sincronizar na nuvem: ${error.message}`, 'warning');
+        return { ok: false, error: error.message };
+      }
+      return { ok: true };
+    }
 
     window.handleCreateBookSubmit = async function (e) {
       e.preventDefault();
@@ -2517,12 +2543,12 @@
       refreshAllUI();
       resetCreateForm();
 
-      if (sb) {
-        await sb.from('livros').upsert(toDbBook(newBook));
-        if (wishId) await sb.from('pedidos_compra').delete().eq('id', wishId);
-      }
+      const res = await saveBookToSupabase(newBook);
+      if (sb && wishId) await sb.from('pedidos_compra').delete().eq('id', wishId);
 
-      showToast(`"${newBook.titulo}" salvo em ${newBook.estante} • ${newBook.prateleira}!`, 'success');
+      if (res.ok) {
+        showToast(`"${newBook.titulo}" sincronizado ao vivo em ${newBook.estante}!`, 'success');
+      }
       switchLibrarianTab('inventory');
     };
 
@@ -2665,6 +2691,17 @@
       if (sb) await sb.from('livros').upsert(toDbBook(b));
     };
 
+    window.removeBook = async function (bookId) {
+      const b = state.books.find((x) => x.id === bookId);
+      if (!b) return;
+      state.books = state.books.filter((x) => x.id !== bookId);
+      state.selectedIds = state.selectedIds.filter((x) => x !== bookId);
+      saveLocalFallback();
+      refreshAllUI();
+      if (sb) await sb.from('livros').delete().eq('id', bookId);
+      showToast(`"${b.titulo}" removido do acervo.`, 'info');
+    };
+
     window.quickCaptureBookCover = function (event, bookId) {
       const file = event.target?.files?.[0];
       const b = state.books.find((x) => x.id === bookId);
@@ -2674,18 +2711,18 @@
       reader.onload = function (e) {
         const img = new Image();
         img.onload = async function () {
-          const maxW = 360;
+          const maxW = 280;
           const scale = Math.min(1, maxW / img.width);
           const canvas = document.createElement('canvas');
           canvas.width = Math.round(img.width * scale);
           canvas.height = Math.round(img.height * scale);
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          b.capaUrl = canvas.toDataURL('image/jpeg', 0.78);
+          b.capaUrl = canvas.toDataURL('image/jpeg', 0.72);
           saveLocalFallback();
           refreshAllUI();
-          if (sb) await sb.from('livros').upsert(toDbBook(b));
-          showToast(`Capa de "${b.titulo}" atualizada!`, 'success');
+          const res = await saveBookToSupabase(b);
+          if (res.ok) showToast(`Capa de "${b.titulo}" salva na nuvem!`, 'success');
         };
         img.src = e.target.result;
       };
