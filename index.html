@@ -70,7 +70,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    body {
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
       background-color: #FAF7F0;
       color: #1C2420;
       font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -114,44 +116,45 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased selection:bg-gold/30 selection:text-ink">
+<body class="min-h-screen flex flex-col antialiased selection:bg-gold/30 selection:text-ink overflow-x-hidden">
 
   <!-- Toast Container -->
-  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-[calc(100vw-2rem)] pointer-events-none"></div>
+  <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 z-50 flex flex-col gap-2 sm:max-w-sm pointer-events-none"></div>
 
   <!-- ===================================================================== -->
   <!-- 1. PORTAL DO LEITOR (PÚBLICO)                                         -->
   <!-- ===================================================================== -->
-  <div id="reader-shell" class="min-h-screen flex flex-col">
+  <div id="reader-shell" class="min-h-screen flex flex-col w-full overflow-x-hidden">
 
-    <!-- Top Header -->
+    <!-- Top Header (Mobile-First Adaptive) -->
     <header class="bg-ivory/95 backdrop-blur-md border-b border-sand sticky top-0 z-30">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-3">
         <!-- Brand -->
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="w-10 h-10 rounded-xl bg-forest text-gold-light flex items-center justify-center shadow-xs border border-gold/40 shrink-0">
-            <i data-lucide="book-open" class="w-5 h-5"></i>
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-forest text-gold-light flex items-center justify-center shadow-xs border border-gold/40 shrink-0">
+            <i data-lucide="book-open" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </div>
           <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="font-serif text-2xl font-bold text-forest tracking-tight leading-none">
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <span class="font-serif text-xl sm:text-2xl font-bold text-forest tracking-tight leading-none">
                 AcervoVivo
               </span>
               <span class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gold-soft text-wood-dark border border-gold/40">
                 Catálogo Público
               </span>
             </div>
-            <p class="text-xs text-muted truncate mt-0.5">
-              Curadoria Literária & Localização nas Estantes
+            <p class="text-[11px] sm:text-xs text-muted truncate mt-0.5">
+              Curadoria & Localização nas Estantes
             </p>
           </div>
         </div>
 
         <!-- Status & Actions -->
-        <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          <div class="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cream border border-sand text-xs font-medium text-ink">
+        <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-cream border border-sand text-[11px] sm:text-xs font-medium text-ink">
             <span id="sync-dot" class="w-2 h-2 rounded-full bg-gold animate-pulse"></span>
-            <span id="sync-label">Conectando...</span>
+            <span id="sync-label" class="hidden sm:inline">Conectando...</span>
+            <span class="sm:hidden">Ao vivo</span>
           </div>
 
           <div class="hidden lg:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cream border border-sand text-xs font-medium text-ink">
@@ -162,19 +165,19 @@
           <button
             type="button"
             onclick="handleInstallButtonClick()"
-            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-light text-gold-light border border-gold/40 text-xs font-semibold transition cursor-pointer shadow-2xs"
+            class="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-xl bg-forest hover:bg-forest-light text-gold-light border border-gold/40 text-xs font-semibold transition cursor-pointer shadow-2xs"
           >
             <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
-            <span>Instalar App</span>
+            <span class="hidden xs:inline sm:inline">Instalar</span>
           </button>
 
           <button
             type="button"
             onclick="openStaffLoginModal()"
-            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cream hover:bg-sand/60 text-ink border border-sand text-xs font-semibold transition cursor-pointer"
+            class="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-xl bg-cream hover:bg-sand/60 text-ink border border-sand text-xs font-semibold transition cursor-pointer"
           >
             <i data-lucide="lock" class="w-3.5 h-3.5 text-terracotta"></i>
-            <span>Acesso da Equipe</span>
+            <span>Equipe</span>
           </button>
         </div>
       </div>
@@ -182,34 +185,34 @@
 
     <!-- Editorial Hero Section -->
     <section class="hero-pattern text-ivory border-b-4 border-gold">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 sm:py-12">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center">
 
           <!-- Left: Title & Search -->
-          <div class="lg:col-span-7 space-y-5">
-            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-forest-light border border-gold/40 text-gold-light text-xs font-medium">
-              <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+          <div class="lg:col-span-7 space-y-4 sm:space-y-5">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-forest-light border border-gold/40 text-gold-light text-[11px] sm:text-xs font-medium">
+              <i data-lucide="compass" class="w-3.5 h-3.5 shrink-0"></i>
               <span>Encontre o título, o tema e a prateleira exata</span>
             </div>
 
-            <h1 class="font-serif text-3xl sm:text-5xl font-bold text-ivory leading-[1.14] tracking-tight">
+            <h1 class="font-serif text-2xl sm:text-5xl font-bold text-ivory leading-[1.16] tracking-tight">
               Descubra o próximo livro que vai iluminar a sua leitura.
             </h1>
 
-            <p class="text-sm sm:text-base text-ivory/85 max-w-2xl leading-relaxed">
+            <p class="text-xs sm:text-base text-ivory/85 max-w-2xl leading-relaxed">
               Pesquise por título, autor, código da lombada ou assunto. Veja na hora se o exemplar está disponível e em qual das <strong class="text-gold-light font-semibold">3 estantes da sala</strong> ele está guardado.
             </p>
 
             <!-- Search Bar -->
             <div class="bg-ivory p-2 rounded-2xl shadow-xl border border-gold/50 flex flex-col sm:flex-row gap-2">
-              <div class="relative flex-1 flex items-center">
-                <i data-lucide="search" class="w-4 h-4 text-muted absolute left-3.5 pointer-events-none"></i>
+              <div class="relative flex-1 flex items-center min-w-0">
+                <i data-lucide="search" class="w-4 h-4 text-muted absolute left-3 pointer-events-none"></i>
                 <input
                   type="text"
                   id="reader-search-input"
                   oninput="renderReaderCatalog()"
-                  placeholder="Busque por título, autor, código (ex: ESP-001) ou tema..."
-                  class="w-full pl-10 pr-8 py-2.5 bg-transparent text-ink placeholder-muted/75 text-sm focus:outline-none"
+                  placeholder="Título, autor, código (ESP-001)..."
+                  class="w-full pl-9 pr-8 py-2.5 bg-transparent text-ink placeholder-muted/75 text-sm focus:outline-none"
                 />
                 <button
                   type="button"
@@ -223,7 +226,7 @@
               <button
                 type="button"
                 onclick="renderReaderCatalog()"
-                class="px-5 py-2.5 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory font-semibold text-sm transition inline-flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory font-semibold text-sm transition inline-flex items-center justify-center gap-2 cursor-pointer shrink-0"
               >
                 <span>Consultar Acervo</span>
                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
@@ -233,16 +236,16 @@
 
           <!-- Right: Consultor Literário Inteligente -->
           <div class="lg:col-span-5">
-            <div class="bg-ivory text-ink rounded-3xl p-5 sm:p-6 border border-gold/60 shadow-2xl space-y-4">
+            <div class="bg-ivory text-ink rounded-3xl p-4 sm:p-6 border border-gold/60 shadow-2xl space-y-3.5 sm:space-y-4">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gold-soft border border-gold/40 text-terracotta flex items-center justify-center shrink-0">
-                  <i data-lucide="sparkles" class="w-5 h-5"></i>
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gold-soft border border-gold/40 text-terracotta flex items-center justify-center shrink-0">
+                  <i data-lucide="sparkles" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                 </div>
-                <div>
-                  <h2 class="font-serif text-xl font-bold text-forest leading-tight">
+                <div class="min-w-0">
+                  <h2 class="font-serif text-lg sm:text-xl font-bold text-forest leading-tight">
                     O que você precisa ler hoje?
                   </h2>
-                  <p class="text-xs text-muted">
+                  <p class="text-[11px] sm:text-xs text-muted">
                     Consultor literário inteligente do nosso acervo
                   </p>
                 </div>
@@ -251,7 +254,7 @@
               <textarea
                 id="advisor-input"
                 rows="2"
-                placeholder="Ex: Preciso de paz interior e oração, quero entender a filosofia grega, ou busco educação dos filhos..."
+                placeholder="Ex: Paz interior e oração, filosofia grega, educação dos filhos..."
                 class="w-full px-3.5 py-2.5 rounded-xl bg-cream border border-sand text-ink placeholder-muted/75 text-xs sm:text-sm focus:outline-none focus:border-forest resize-none"
               ></textarea>
 
@@ -259,21 +262,21 @@
                 <button
                   type="button"
                   onclick="applyAdvisorPreset('Vida espiritual e oração')"
-                  class="px-3 py-1 rounded-lg bg-cream hover:bg-gold-soft text-muted hover:text-ink border border-sand text-xs font-medium transition cursor-pointer"
+                  class="px-2.5 py-1.5 rounded-lg bg-cream hover:bg-gold-soft text-muted hover:text-ink border border-sand text-xs font-medium transition cursor-pointer"
                 >
                   Vida espiritual
                 </button>
                 <button
                   type="button"
                   onclick="applyAdvisorPreset('Literatura grega e clássicos')"
-                  class="px-3 py-1 rounded-lg bg-cream hover:bg-gold-soft text-muted hover:text-ink border border-sand text-xs font-medium transition cursor-pointer"
+                  class="px-2.5 py-1.5 rounded-lg bg-cream hover:bg-gold-soft text-muted hover:text-ink border border-sand text-xs font-medium transition cursor-pointer"
                 >
                   Literatura grega
                 </button>
                 <button
                   type="button"
                   onclick="applyAdvisorPreset('Educação dos filhos e caráter')"
-                  class="px-3 py-1 rounded-lg bg-cream hover:bg-gold-soft text-muted hover:text-ink border border-sand text-xs font-medium transition cursor-pointer"
+                  class="px-2.5 py-1.5 rounded-lg bg-cream hover:bg-gold-soft text-muted hover:text-ink border border-sand text-xs font-medium transition cursor-pointer"
                 >
                   Educação & caráter
                 </button>
@@ -283,10 +286,10 @@
                 <button
                   type="button"
                   onclick="runLiteraryAdvisor()"
-                  class="flex-1 py-2.5 px-4 rounded-xl bg-forest hover:bg-forest-light text-ivory font-semibold text-xs sm:text-sm transition inline-flex items-center justify-center gap-2 cursor-pointer"
+                  class="flex-1 py-2.5 px-3 sm:px-4 rounded-xl bg-forest hover:bg-forest-light text-ivory font-semibold text-xs sm:text-sm transition inline-flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <i data-lucide="wand-2" class="w-4 h-4 text-gold-light"></i>
-                  <span>Recomendar Livros do Acervo</span>
+                  <i data-lucide="wand-2" class="w-4 h-4 text-gold-light shrink-0"></i>
+                  <span>Recomendar Livros</span>
                 </button>
                 <button
                   type="button"
@@ -307,14 +310,14 @@
     </section>
 
     <!-- Filter Bar & Catalog Grid -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-sand">
+    <main class="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 w-full space-y-5 sm:space-y-6">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 pb-3 sm:pb-4 border-b border-sand">
         <!-- Horizontal Section Pills -->
-        <div id="reader-section-pills" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1"></div>
+        <div id="reader-section-pills" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 -mx-1 px-1"></div>
 
         <!-- Availability & Count -->
-        <div class="flex items-center justify-between lg:justify-end gap-4 shrink-0">
-          <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+        <div class="flex items-center justify-between lg:justify-end gap-3 shrink-0">
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none py-1">
             <input
               type="checkbox"
               id="reader-only-available"
@@ -331,10 +334,7 @@
       </div>
 
       <!-- Cards Grid -->
-      <div id="reader-books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
-
-      <!-- Empty State + Sugerir Compra -->
-      <div id="reader-empty-state" class="hidden rounded-3xl bg-ivory border border-sand p-8 sm:p-10 text-center max-w-xl mx-auto space-y-4">
+      <div id="reader-books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5"></div>
         <div class="w-14 h-14 rounded-2xl bg-terracotta-soft text-terracotta mx-auto flex items-center justify-center">
           <i data-lucide="book-x" class="w-7 h-7"></i>
         </div>
@@ -380,58 +380,58 @@
   <!-- ===================================================================== -->
   <!-- 2. PAINEL DO BIBLIOTECÁRIO (RESTRITO POR PIN)                         -->
   <!-- ===================================================================== -->
-  <div id="librarian-shell" class="hidden min-h-screen flex flex-col lg:flex-row">
+  <div id="librarian-shell" class="hidden min-h-screen flex flex-col lg:flex-row w-full overflow-x-hidden">
 
     <!-- Sidebar -->
     <aside class="w-full lg:w-72 bg-forest text-ivory flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-gold/30 shrink-0">
-      <div class="p-5 space-y-5">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-forest-light border border-gold/40 text-gold-light flex items-center justify-center">
+      <div class="p-4 sm:p-5 space-y-4 sm:space-y-5">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-forest-light border border-gold/40 text-gold-light flex items-center justify-center shrink-0">
               <i data-lucide="shield-check" class="w-5 h-5"></i>
             </div>
-            <div>
-              <span class="font-serif text-xl font-bold block leading-none">AcervoVivo</span>
-              <span class="text-[11px] font-mono text-gold-light uppercase">Painel da Equipe</span>
+            <div class="min-w-0">
+              <span class="font-serif text-lg sm:text-xl font-bold block leading-none truncate">AcervoVivo</span>
+              <span class="text-[10px] sm:text-[11px] font-mono text-gold-light uppercase">Painel da Equipe</span>
             </div>
           </div>
 
           <button
             type="button"
             onclick="exitLibrarianPortal()"
-            class="lg:hidden px-3 py-1.5 rounded-xl bg-forest-light text-xs font-semibold border border-ivory/15 cursor-pointer"
+            class="lg:hidden px-3 py-2 rounded-xl bg-forest-light text-xs font-semibold border border-ivory/20 cursor-pointer shrink-0"
           >
-            Sair
+            Voltar ao Catálogo
           </button>
         </div>
 
-        <nav class="grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-1 gap-2">
-          <button type="button" id="nav-tab-capture" onclick="switchLibrarianTab('capture')" class="lib-tab-btn flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-semibold bg-gold text-ink cursor-pointer">
+        <nav class="flex lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+          <button type="button" id="nav-tab-capture" onclick="switchLibrarianTab('capture')" class="lib-tab-btn flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-semibold bg-gold text-ink whitespace-nowrap shrink-0 cursor-pointer">
             <i data-lucide="scan-line" class="w-4 h-4 shrink-0"></i>
             <span>Cadastrar Livro</span>
           </button>
 
-          <button type="button" id="nav-tab-inventory" onclick="switchLibrarianTab('inventory')" class="lib-tab-btn flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light cursor-pointer">
+          <button type="button" id="nav-tab-inventory" onclick="switchLibrarianTab('inventory')" class="lib-tab-btn flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light whitespace-nowrap shrink-0 cursor-pointer">
             <i data-lucide="library" class="w-4 h-4 shrink-0"></i>
             <span>Acervo & Etiquetas</span>
           </button>
 
-          <button type="button" id="nav-tab-sections" onclick="switchLibrarianTab('sections')" class="lib-tab-btn flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light cursor-pointer">
+          <button type="button" id="nav-tab-sections" onclick="switchLibrarianTab('sections')" class="lib-tab-btn flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light whitespace-nowrap shrink-0 cursor-pointer">
             <i data-lucide="layers" class="w-4 h-4 shrink-0"></i>
-            <span>Gerenciar Seções</span>
+            <span>Seções</span>
           </button>
 
-          <button type="button" id="nav-tab-wishlist" onclick="switchLibrarianTab('wishlist')" class="lib-tab-btn flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light cursor-pointer">
-            <span class="flex items-center gap-2.5">
+          <button type="button" id="nav-tab-wishlist" onclick="switchLibrarianTab('wishlist')" class="lib-tab-btn flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light whitespace-nowrap shrink-0 cursor-pointer">
+            <span class="flex items-center gap-2">
               <i data-lucide="shopping-bag" class="w-4 h-4 shrink-0"></i>
               <span>Pedidos</span>
             </span>
             <span id="lib-wish-count" class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-terracotta text-ivory">0</span>
           </button>
 
-          <button type="button" id="nav-tab-settings" onclick="switchLibrarianTab('settings')" class="lib-tab-btn flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light cursor-pointer col-span-2 sm:col-span-1">
+          <button type="button" id="nav-tab-settings" onclick="switchLibrarianTab('settings')" class="lib-tab-btn flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-medium text-ivory/85 hover:bg-forest-light whitespace-nowrap shrink-0 cursor-pointer">
             <i data-lucide="qr-code" class="w-4 h-4 shrink-0"></i>
-            <span>Cartaz QR & Ajustes</span>
+            <span>QR & Senha</span>
           </button>
         </nav>
       </div>
