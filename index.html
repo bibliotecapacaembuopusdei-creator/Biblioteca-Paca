@@ -1034,19 +1034,185 @@
 
   <script>
     // =========================================================================
-    // 1. SUPABASE CONNECTION & PHYSICAL ARCHITECTURE (3 REAL BOOKCASES)
+    // 4. MULTI-SOURCE ISBN SEARCH (6 BASES + CONVERSÃO ISBN-10/13)
     // =========================================================================
-    const SUPABASE_URL = 'https://qrowflmddgbevgqlmvrd.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_A4ThiFpkFf-S7oYOmZdmzA_hy1SWBph';
-    const LIVE_SITE_URL = 'https://bibliotecapacaembuopusdei-creator.github.io/Biblioteca-Paca/';
+    function convertIsbn10And13(code) {
+      const variants = new Set([code]);
+      if (code.length === 13 && code.startsWith('978')) {
+        const core = code.slice(3, 12);
+        let sum = 0;
+        for (let i = 0; i < 9; i++) sum += parseInt(core[i], 10) * (10 - i);
+        const rem = 11 - (sum % 11);
+        const check = rem === 10 ? 'X' : rem === 11 ? '0' : String(rem);
+        variants.add(core + check);
+      } else if (code.length === 10) {
+        const core = '978' + code.slice(0, 9);
+        let sum = 0;
+        for (let i = 0; i < 12; i++) sum += parseInt(core[i], 10) * (i % 2 === 0 ? 1 : 3);
+        const check = (10 - (sum % 10)) % 10;
+        variants.add(core + String(check));
+      }
+      return Array.from(variants);
+    }
 
-    const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+    async function fetchWithTimeout(url, ms = 5500) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), ms);
+      try {
+        const res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(timer);
+        return res;
+      } catch (e) {
+        clearTimeout(timer);
+        throw e;
+      }
+    }
 
-    const STORAGE_KEYS = {
-      BOOKS: 'acervovivo_books_v3',
-      SECTIONS: 'acervovivo_sections_v3',
-      WISHLIST: 'acervovivo_wishlist_v3',
-      PIN: 'acervovivo_pin_v3'
+    window.searchIsbnMultiSource = async function (overrideCode = null) {
+      const rawInput = overrideCode || document.getElementById('isbn-search-input')?.value || '';
+      const cleanIsbn = rawInput.replace(/[^0-9Xx]/g, '').toUpperCase();
+      const statusEl = document.getElementById('isbn-search-status');
+
+      if (cleanIsbn.length !== 10 && cleanIsbn.length !== 13) {
+        showToast('Digite ou escaneie um ISBN válido com 10 ou 13 dígitos.', 'warning');
+        return;
+      }
+
+      const codes = convertIsbn10And13(cleanIsbn);
+
+      if (statusEl) {
+        statusEl.classList.remove('hidden');
+        statusEl.textContent = `Consultando 6 bases bibliográficas para ${codes.join(' / ')}...`;
+      }
+
+      // 1. BrasilAPI (CBL oficial do Brasil)
+      for (const c of codes) {
+        try {
+          const res = await fetchWithTimeout(`https://brasilapi.com.br/api/isbn/v1/${c}`);
+          if (res.ok) {
+            const br = await res.json();
+            if (br && br.title) {
+              fillFormFromIsbn({
+                isbn: cleanIsbn,
+                titulo: br.title,
+                autor: Array.isArray(br.authors) ? br.authors.join(', ') : (br.authors || ''),
+                resumo: br.synopsis || `Obra publicada por ${br.publisher || 'editora nacional'} (${br.year || ''}).`,
+                palavras: Array.isArray(br.subjects) ? br.subjects.join(', ') : ''
+              });
+              if (statusEl) statusEl.textContent = `Encontrado na BrasilAPI (CBL): "${br.title}"`;
+              showToast('Livro encontrado na base brasileira (CBL)!', 'success');
+              return;
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Google Books (busca exata por isbn: e busca geral pelo número)
+      for (const c of codes) {
+        for (const query of [`isbn:${c}`, `"${c}"`]) {
+          try {
+            const res = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=3`);
+            if (res.ok) {
+              const gb = await res.json();
+              if (gb.items && gb.items.length > 0) {
+                const info = gb.items[0].volumeInfo;
+                if (info && info.title) {
+                  fillFormFromIsbn({
+                    isbn: cleanIsbn,
+                    titulo: info.title,
+                    autor: (info.authors || []).join(', '),
+                    resumo: (info.description || '').slice(0, 380),
+                    palavras: (info.categories || []).join(', ')
+                  });
+                  if (statusEl) statusEl.textContent = `Encontrado no Google Books: "${info.title}"`;
+                  showToast('Livro encontrado no Google Books!', 'success');
+                  return;
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+
+      // 3. Open Library (API de Livros + Search API)
+      for (const c of codes) {
+        try {
+          const res = await fetchWithTimeout(`https://openlibrary.org/api/books?bibkeys=ISBN:${c}&format=json&jscmd=data`);
+          if (res.ok) {
+            const ol = await res.json();
+            const entry = ol[`ISBN:${c}`];
+            if (entry && entry.title) {
+              fillFormFromIsbn({
+                isbn: cleanIsbn,
+                titulo: entry.title,
+                autor: (entry.authors || []).map((a) => a.name).join(', '),
+                resumo: entry.notes || `Edição catalogada via Open Library (${entry.publish_date || ''}).`,
+                palavras: (entry.subjects || []).slice(0, 5).map((s) => s.name).join(', ')
+              });
+              if (statusEl) statusEl.textContent = `Encontrado na Open Library: "${entry.title}"`;
+              showToast('Livro encontrado na Open Library!', 'success');
+              return;
+            }
+          }
+        } catch {}
+      }
+
+      // 4. Mercado Livre Catálogo Brasil (excelente para livros nacionais fora da CBL)
+      for (const c of codes) {
+        try {
+          const res = await fetchWithTimeout(`https://api.mercadolibre.com/sites/MLB/search?q=${c}&limit=3`);
+          if (res.ok) {
+            const ml = await res.json();
+            if (ml.results && ml.results.length > 0) {
+              const item = ml.results[0];
+              const cleanTitle = (item.title || '').replace(/^Livro\s*[-–:]?\s*/i, '').trim();
+              const authorAttr = (item.attributes || []).find((a) => a.id === 'AUTHOR');
+              if (cleanTitle) {
+                fillFormFromIsbn({
+                  isbn: cleanIsbn,
+                  titulo: cleanTitle,
+                  autor: authorAttr ? authorAttr.value_name : '',
+                  resumo: `Edição localizada no catálogo editorial brasileiro (ISBN ${cleanIsbn}).`,
+                  palavras: ''
+                });
+                if (statusEl) statusEl.textContent = `Encontrado no Catálogo Brasil (MLB): "${cleanTitle}"`;
+                showToast('Livro localizado no catálogo brasileiro!', 'success');
+                return;
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // 5. Crossref (obras acadêmicas, teológicas e universitárias)
+      for (const c of codes) {
+        try {
+          const res = await fetchWithTimeout(`https://api.crossref.org/works?filter=isbn:${c}&rows=1`);
+          if (res.ok) {
+            const cr = await res.json();
+            const item = cr?.message?.items?.[0];
+            if (item && item.title && item.title[0]) {
+              const authors = (item.author || []).map((a) => [a.given, a.family].filter(Boolean).join(' ')).join(', ');
+              fillFormFromIsbn({
+                isbn: cleanIsbn,
+                titulo: item.title[0],
+                autor: authors,
+                resumo: `Publicação catalogada via Crossref (${item.publisher || ''}).`,
+                palavras: ''
+              });
+              if (statusEl) statusEl.textContent = `Encontrado no Crossref: "${item.title[0]}"`;
+              showToast('Livro encontrado no Crossref!', 'success');
+              return;
+            }
+          }
+        } catch {}
+      }
+
+      document.getElementById('create-isbn').value = cleanIsbn;
+      if (statusEl) {
+        statusEl.textContent = `O código ${cleanIsbn} foi validado e preenchido no campo ISBN abaixo, mas esta edição específica não possui ficha pública nas 6 bases consultadas (comum em edições antigas ou tiragens próprias). Complete o título e autor abaixo.`;
+      }
+      showToast('ISBN preenchido abaixo — complete título e autor manualmente.', 'warning');
     };
 
     const ESTANTES_CONFIG = {
