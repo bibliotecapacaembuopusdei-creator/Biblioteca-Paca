@@ -21,6 +21,11 @@
     rel="stylesheet"
   />
 
+  <!-- PWA App Icons (Generated dynamically as crisp PNG Data URLs on boot) -->
+  <link id="pwa-apple-icon" rel="apple-touch-icon" sizes="512x512" href="" />
+  <link id="pwa-favicon" rel="icon" type="image/png" sizes="192x192" href="" />
+  <link id="pwa-manifest-link" rel="manifest" href="" />
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -335,6 +340,9 @@
 
       <!-- Cards Grid -->
       <div id="reader-books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5"></div>
+
+      <!-- Empty State & Purchase Request -->
+      <div id="reader-empty-state" class="hidden rounded-3xl bg-ivory border border-sand p-6 sm:p-10 text-center max-w-2xl mx-auto space-y-4">
         <div class="w-14 h-14 rounded-2xl bg-terracotta-soft text-terracotta mx-auto flex items-center justify-center">
           <i data-lucide="book-x" class="w-7 h-7"></i>
         </div>
@@ -544,6 +552,33 @@
             <div class="md:col-span-4">
               <label class="block text-xs font-semibold text-ink mb-1">ISBN (Opcional)</label>
               <input type="text" id="create-isbn" placeholder="Sem ISBN / Edição Antiga" class="w-full px-3.5 py-2.5 rounded-xl bg-cream border border-sand font-mono text-sm focus:outline-none focus:border-forest" />
+            </div>
+
+            <!-- Capa Digital do Livro (Automática via ISBN ou Foto da Câmera) -->
+            <div class="md:col-span-12 rounded-2xl bg-cream border border-sand p-4 flex flex-col sm:flex-row items-center gap-4">
+              <div id="create-cover-preview-box" class="w-16 h-24 rounded-lg bg-forest text-gold-light flex flex-col items-center justify-center shrink-0 overflow-hidden border border-gold/40">
+                <i data-lucide="image" class="w-5 h-5"></i>
+                <span class="text-[9px] font-mono mt-1">SEM CAPA</span>
+              </div>
+              <div class="flex-1 space-y-2 w-full">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p class="text-xs font-bold text-ink">Capa Digital do Livro (Opcional)</p>
+                    <p class="text-[11px] text-muted">Preenchida automaticamente ao buscar ISBN ou capturada pela câmera do celular.</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="px-3 py-1.5 rounded-xl bg-forest text-ivory text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer">
+                      <i data-lucide="camera" class="w-3.5 h-3.5 text-gold-light"></i>
+                      <span>Fotografar Capa</span>
+                      <input type="file" accept="image/*" capture="environment" onchange="handleCoverFileUpload(event, 'create')" class="hidden" />
+                    </label>
+                    <button type="button" id="btn-clear-create-cover" onclick="clearCoverPreview('create')" class="hidden px-2.5 py-1.5 rounded-xl bg-ivory border border-sand text-xs text-terracotta font-semibold cursor-pointer">
+                      Remover
+                    </button>
+                  </div>
+                </div>
+                <input type="hidden" id="create-cover-url" value="" />
+              </div>
             </div>
 
             <!-- Estante, Prateleira Dinâmica, Etiqueta da Prateleira & Quantidade -->
@@ -886,9 +921,10 @@
 
       <div class="p-6 sm:p-8 space-y-6 max-h-[82vh] overflow-y-auto">
         <div class="flex flex-col sm:flex-row gap-5 items-start">
-          <div id="det-cover" class="w-28 h-40 rounded-r-2xl rounded-l-sm p-3.5 flex flex-col justify-between text-ivory shrink-0 book-spine-shadow mx-auto sm:mx-0">
-            <span id="det-glyph" class="text-gold-light text-base">✝</span>
-            <div>
+          <div id="det-cover" class="w-28 h-40 rounded-r-2xl rounded-l-sm p-3.5 flex flex-col justify-between text-ivory shrink-0 book-spine-shadow mx-auto sm:mx-0 overflow-hidden relative">
+            <img id="det-cover-img" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover" />
+            <span id="det-glyph" class="text-gold-light text-base relative z-10">✝</span>
+            <div class="relative z-10">
               <p id="det-cover-title" class="font-serif text-xs font-bold leading-snug line-clamp-3"></p>
               <p id="det-cover-author" class="text-[10px] opacity-80 line-clamp-1 mt-0.5"></p>
             </div>
@@ -998,6 +1034,28 @@
           <textarea id="edit-indication" rows="2" required class="w-full px-3.5 py-2 rounded-xl bg-cream border border-sand text-sm resize-none"></textarea>
         </div>
 
+        <div class="rounded-2xl bg-cream border border-sand p-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div id="edit-cover-preview-box" class="w-12 h-16 rounded-md bg-forest text-gold-light flex items-center justify-center overflow-hidden shrink-0">
+              <i data-lucide="image" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-ink">Foto da Capa</p>
+              <p class="text-[11px] text-muted">Atualize a capa digital deste exemplar</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="px-3 py-1.5 rounded-xl bg-forest text-ivory text-xs font-semibold cursor-pointer">
+              Trocar Foto
+              <input type="file" accept="image/*" capture="environment" onchange="handleCoverFileUpload(event, 'edit')" class="hidden" />
+            </label>
+            <button type="button" id="btn-clear-edit-cover" onclick="clearCoverPreview('edit')" class="hidden px-2.5 py-1.5 rounded-xl bg-ivory border border-sand text-xs text-terracotta font-semibold cursor-pointer">
+              Remover
+            </button>
+          </div>
+          <input type="hidden" id="edit-cover-url" value="" />
+        </div>
+
         <div class="flex justify-end gap-3">
           <button type="button" onclick="closeModal('modal-edit-book')" class="px-4 py-2 rounded-xl bg-cream border border-sand text-xs font-semibold cursor-pointer">Cancelar</button>
           <button type="submit" class="px-6 py-2 rounded-xl bg-forest text-ivory text-xs font-semibold cursor-pointer">Salvar</button>
@@ -1034,8 +1092,84 @@
 
   <script>
     // =========================================================================
-    // 4. MULTI-SOURCE ISBN SEARCH (6 BASES + CONVERSÃO ISBN-10/13)
+    // 1. SUPABASE CONNECTION & STORAGE CONSTANTS
     // =========================================================================
+    const SUPABASE_URL = 'https://qrowflmddgbevgqlmvrd.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_A4ThiFpkFf-S7oYOmZdmzA_hy1SWBph';
+    const LIVE_SITE_URL = 'https://bibliotecapacaembuopusdei-creator.github.io/Biblioteca-Paca/';
+
+    const STORAGE_KEYS = {
+      SECTIONS: 'acervovivo_sections_v3',
+      BOOKS: 'acervovivo_books_v3',
+      WISHLIST: 'acervovivo_wishlist_v3',
+      PIN: 'acervovivo_pin_v3'
+    };
+
+    const sb = (window.supabase && SUPABASE_URL && SUPABASE_KEY)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+      : null;
+
+    // =========================================================================
+    // 2. COVER PHOTO COMPRESSION & MULTI-SOURCE ISBN SEARCH
+    // =========================================================================
+    function setCoverPreview(mode, url) {
+      const box = document.getElementById(`${mode}-cover-preview-box`);
+      const input = document.getElementById(`${mode}-cover-url`);
+      const clearBtn = document.getElementById(`btn-clear-${mode}-cover`);
+      if (!box || !input) return;
+
+      input.value = url || '';
+      if (url) {
+        box.innerHTML = `<img src="${esc(url)}" alt="Capa" class="w-full h-full object-cover" />`;
+        clearBtn?.classList.remove('hidden');
+      } else {
+        box.innerHTML = `<i data-lucide="image" class="w-5 h-5"></i><span class="text-[9px] font-mono mt-1">SEM CAPA</span>`;
+        clearBtn?.classList.add('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    window.clearCoverPreview = function (mode) {
+      setCoverPreview(mode, '');
+    };
+
+    window.handleCoverFileUpload = function (event, mode) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxW = 320;
+          const scale = Math.min(1, maxW / img.width);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.78);
+          setCoverPreview(mode, compressedDataUrl);
+          showToast('Foto da capa capturada!', 'success');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    async function lookupCoverUrlByIsbn(codes) {
+      for (const c of codes) {
+        try {
+          const res = await fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=isbn:${c}&maxResults=1`, 3500);
+          if (res.ok) {
+            const data = await res.json();
+            const thumb = data?.items?.[0]?.volumeInfo?.imageLinks?.thumbnail || data?.items?.[0]?.volumeInfo?.imageLinks?.smallThumbnail;
+            if (thumb) return thumb.replace(/^http:\/\//i, 'https://');
+          }
+        } catch {}
+      }
+      return '';
+    }
+
     function convertIsbn10And13(code) {
       const variants = new Set([code]);
       if (code.length === 13 && code.startsWith('978')) {
@@ -1082,7 +1216,7 @@
 
       if (statusEl) {
         statusEl.classList.remove('hidden');
-        statusEl.textContent = `Consultando 6 bases bibliográficas para ${codes.join(' / ')}...`;
+        statusEl.textContent = `Consultando bases bibliográficas e capa digital para ${cleanIsbn}...`;
       }
 
       // 1. BrasilAPI (CBL oficial do Brasil)
@@ -1092,12 +1226,14 @@
           if (res.ok) {
             const br = await res.json();
             if (br && br.title) {
+              const capaUrl = br.cover_url || (await lookupCoverUrlByIsbn(codes));
               fillFormFromIsbn({
                 isbn: cleanIsbn,
                 titulo: br.title,
                 autor: Array.isArray(br.authors) ? br.authors.join(', ') : (br.authors || ''),
                 resumo: br.synopsis || `Obra publicada por ${br.publisher || 'editora nacional'} (${br.year || ''}).`,
-                palavras: Array.isArray(br.subjects) ? br.subjects.join(', ') : ''
+                palavras: Array.isArray(br.subjects) ? br.subjects.join(', ') : '',
+                capaUrl
               });
               if (statusEl) statusEl.textContent = `Encontrado na BrasilAPI (CBL): "${br.title}"`;
               showToast('Livro encontrado na base brasileira (CBL)!', 'success');
@@ -1107,7 +1243,7 @@
         } catch {}
       }
 
-      // 2. Google Books (busca exata por isbn: e busca geral pelo número)
+      // 2. Google Books
       for (const c of codes) {
         for (const query of [`isbn:${c}`, `"${c}"`]) {
           try {
@@ -1117,12 +1253,14 @@
               if (gb.items && gb.items.length > 0) {
                 const info = gb.items[0].volumeInfo;
                 if (info && info.title) {
+                  const thumb = (info.imageLinks?.thumbnail || info.imageLinks?.smallThumbnail || '').replace(/^http:\/\//i, 'https://');
                   fillFormFromIsbn({
                     isbn: cleanIsbn,
                     titulo: info.title,
                     autor: (info.authors || []).join(', '),
                     resumo: (info.description || '').slice(0, 380),
-                    palavras: (info.categories || []).join(', ')
+                    palavras: (info.categories || []).join(', '),
+                    capaUrl: thumb
                   });
                   if (statusEl) statusEl.textContent = `Encontrado no Google Books: "${info.title}"`;
                   showToast('Livro encontrado no Google Books!', 'success');
@@ -1134,7 +1272,7 @@
         }
       }
 
-      // 3. Open Library (API de Livros + Search API)
+      // 3. Open Library
       for (const c of codes) {
         try {
           const res = await fetchWithTimeout(`https://openlibrary.org/api/books?bibkeys=ISBN:${c}&format=json&jscmd=data`);
@@ -1147,7 +1285,8 @@
                 titulo: entry.title,
                 autor: (entry.authors || []).map((a) => a.name).join(', '),
                 resumo: entry.notes || `Edição catalogada via Open Library (${entry.publish_date || ''}).`,
-                palavras: (entry.subjects || []).slice(0, 5).map((s) => s.name).join(', ')
+                palavras: (entry.subjects || []).slice(0, 5).map((s) => s.name).join(', '),
+                capaUrl: entry.cover?.medium || entry.cover?.large || ''
               });
               if (statusEl) statusEl.textContent = `Encontrado na Open Library: "${entry.title}"`;
               showToast('Livro encontrado na Open Library!', 'success');
@@ -1157,7 +1296,7 @@
         } catch {}
       }
 
-      // 4. Mercado Livre Catálogo Brasil (excelente para livros nacionais fora da CBL)
+      // 4. Mercado Livre Catálogo Brasil
       for (const c of codes) {
         try {
           const res = await fetchWithTimeout(`https://api.mercadolibre.com/sites/MLB/search?q=${c}&limit=3`);
@@ -1173,7 +1312,8 @@
                   titulo: cleanTitle,
                   autor: authorAttr ? authorAttr.value_name : '',
                   resumo: `Edição localizada no catálogo editorial brasileiro (ISBN ${cleanIsbn}).`,
-                  palavras: ''
+                  palavras: '',
+                  capaUrl: (item.thumbnail || '').replace(/^http:\/\//i, 'https://')
                 });
                 if (statusEl) statusEl.textContent = `Encontrado no Catálogo Brasil (MLB): "${cleanTitle}"`;
                 showToast('Livro localizado no catálogo brasileiro!', 'success');
@@ -1184,36 +1324,23 @@
         } catch {}
       }
 
-      // 5. Crossref (obras acadêmicas, teológicas e universitárias)
-      for (const c of codes) {
-        try {
-          const res = await fetchWithTimeout(`https://api.crossref.org/works?filter=isbn:${c}&rows=1`);
-          if (res.ok) {
-            const cr = await res.json();
-            const item = cr?.message?.items?.[0];
-            if (item && item.title && item.title[0]) {
-              const authors = (item.author || []).map((a) => [a.given, a.family].filter(Boolean).join(' ')).join(', ');
-              fillFormFromIsbn({
-                isbn: cleanIsbn,
-                titulo: item.title[0],
-                autor: authors,
-                resumo: `Publicação catalogada via Crossref (${item.publisher || ''}).`,
-                palavras: ''
-              });
-              if (statusEl) statusEl.textContent = `Encontrado no Crossref: "${item.title[0]}"`;
-              showToast('Livro encontrado no Crossref!', 'success');
-              return;
-            }
-          }
-        } catch {}
-      }
-
       document.getElementById('create-isbn').value = cleanIsbn;
       if (statusEl) {
-        statusEl.textContent = `O código ${cleanIsbn} foi validado e preenchido no campo ISBN abaixo, mas esta edição específica não possui ficha pública nas 6 bases consultadas (comum em edições antigas ou tiragens próprias). Complete o título e autor abaixo.`;
+        statusEl.textContent = `O código ${cleanIsbn} foi preenchido no campo ISBN abaixo. Complete o título, autor e tire uma foto da capa se desejar.`;
       }
       showToast('ISBN preenchido abaixo — complete título e autor manualmente.', 'warning');
     };
+
+    function fillFormFromIsbn({ isbn, titulo, autor, resumo, palavras, capaUrl }) {
+      document.getElementById('create-isbn').value = isbn;
+      document.getElementById('create-title').value = titulo;
+      document.getElementById('create-author').value = autor;
+      const cleanSummary = resumo || `Obra "${titulo}" de ${autor || 'autor catalogado'}.`;
+      document.getElementById('create-summary').value = cleanSummary;
+      document.getElementById('create-indication').value = `Indicado para leitores interessados em "${titulo}" e nos temas abordados por ${autor || 'este autor'}.`;
+      if (palavras) document.getElementById('create-keywords').value = palavras;
+      setCoverPreview('create', capaUrl || '');
+    }
 
     const ESTANTES_CONFIG = {
       'Estante 1': {
@@ -1520,16 +1647,11 @@
         const icon512 = buildCrispAppIconDataUrl(512);
 
         if (icon512) {
-          const appleIcon = document.createElement('link');
-          appleIcon.rel = 'apple-touch-icon';
-          appleIcon.href = icon512;
-          document.head.appendChild(appleIcon);
+          const appleIcon = document.getElementById('pwa-apple-icon');
+          if (appleIcon) appleIcon.href = icon512;
 
-          const favicon = document.createElement('link');
-          favicon.rel = 'icon';
-          favicon.type = 'image/png';
-          favicon.href = icon192;
-          document.head.appendChild(favicon);
+          const favicon = document.getElementById('pwa-favicon');
+          if (favicon) favicon.href = icon192;
         }
 
         const baseUrl = window.location.href.split('?')[0].split('#')[0];
@@ -1543,16 +1665,14 @@
           background_color: '#FAF7F0',
           theme_color: '#143628',
           icons: [
-            { src: icon192, sizes: '192x192', type: 'image/png', purpose: 'any' },
-            { src: icon512, sizes: '512x512', type: 'image/png', purpose: 'any' }
+            { src: icon192, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+            { src: icon512, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
           ]
         };
 
-        const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-        const link = document.createElement('link');
-        link.rel = 'manifest';
-        link.href = URL.createObjectURL(blob);
-        document.head.appendChild(link);
+        const dataManifestUrl = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+        const link = document.getElementById('pwa-manifest-link');
+        if (link) link.href = dataManifestUrl;
       } catch (e) {
         console.warn('PWA init:', e);
       }
@@ -1673,7 +1793,8 @@
       quantidade_disponivel: Number(b.quantidadeDisponivel) ?? 1,
       resumo: b.resumo || '',
       indicacao: b.indicacao || '',
-      palavras_chave: b.palavrasChave || ''
+      palavras_chave: b.palavrasChave || '',
+      capa_url: b.capaUrl || ''
     });
 
     const fromDbBook = (r) => ({
@@ -1690,7 +1811,8 @@
       quantidadeDisponivel: Number(r.quantidade_disponivel) ?? 1,
       resumo: r.resumo || '',
       indicacao: r.indicacao || '',
-      palavrasChave: r.palavras_chave || ''
+      palavrasChave: r.palavras_chave || '',
+      capaUrl: r.capa_url || ''
     });
 
     async function syncSupabase(seedIfEmpty = false) {
@@ -1755,111 +1877,6 @@
         console.warn('WebSocket indisponível neste ambiente, usando atualização automática:', err);
         setInterval(() => syncSupabase(false), 15000);
       }
-    }
-
-    // =========================================================================
-    // 4. MULTI-SOURCE ISBN SEARCH (BRASILAPI CBL + GOOGLE BOOKS + OPEN LIBRARY)
-    // =========================================================================
-    window.searchIsbnMultiSource = async function (overrideCode = null) {
-      const rawInput = overrideCode || document.getElementById('isbn-search-input')?.value || '';
-      const cleanIsbn = rawInput.replace(/[^0-9Xx]/g, '').toUpperCase();
-      const statusEl = document.getElementById('isbn-search-status');
-
-      if (cleanIsbn.length !== 10 && cleanIsbn.length !== 13) {
-        showToast('Digite ou escaneie um ISBN válido com 10 ou 13 dígitos.', 'warning');
-        return;
-      }
-
-      if (statusEl) {
-        statusEl.classList.remove('hidden');
-        statusEl.textContent = `Buscando ISBN ${cleanIsbn} na Câmara Brasileira do Livro (BrasilAPI)...`;
-      }
-
-      // 1st Source: BrasilAPI (Official Brazilian CBL Database)
-      try {
-        const brRes = await fetch(`https://brasilapi.com.br/api/isbn/v1/${cleanIsbn}`);
-        if (brRes.ok) {
-          const br = await brRes.json();
-          if (br && br.title) {
-            fillFormFromIsbn({
-              isbn: cleanIsbn,
-              titulo: br.title,
-              autor: Array.isArray(br.authors) ? br.authors.join(', ') : (br.authors || ''),
-              resumo: br.synopsis || `Obra publicada por ${br.publisher || 'editora nacional'} (${br.year || ''}).`,
-              palavras: Array.isArray(br.subjects) ? br.subjects.join(', ') : ''
-            });
-            if (statusEl) statusEl.textContent = `Encontrado na BrasilAPI (CBL): "${br.title}"`;
-            showToast('Livro encontrado na base brasileira (CBL)!', 'success');
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn('BrasilAPI indisponível:', e);
-      }
-
-      // 2nd Source: Google Books API
-      if (statusEl) statusEl.textContent = `Consultando Google Books para ISBN ${cleanIsbn}...`;
-      try {
-        const gbRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}`);
-        if (gbRes.ok) {
-          const gb = await gbRes.json();
-          if (gb.items && gb.items.length > 0) {
-            const info = gb.items[0].volumeInfo;
-            fillFormFromIsbn({
-              isbn: cleanIsbn,
-              titulo: info.title || '',
-              autor: (info.authors || []).join(', '),
-              resumo: (info.description || '').slice(0, 360),
-              palavras: (info.categories || []).join(', ')
-            });
-            if (statusEl) statusEl.textContent = `Encontrado no Google Books: "${info.title}"`;
-            showToast('Livro encontrado no Google Books!', 'success');
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn('Google Books indisponível:', e);
-      }
-
-      // 3rd Source: Open Library API
-      if (statusEl) statusEl.textContent = `Consultando Open Library para ISBN ${cleanIsbn}...`;
-      try {
-        const olRes = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${cleanIsbn}&format=json&jscmd=data`);
-        if (olRes.ok) {
-          const ol = await olRes.json();
-          const entry = ol[`ISBN:${cleanIsbn}`];
-          if (entry && entry.title) {
-            fillFormFromIsbn({
-              isbn: cleanIsbn,
-              titulo: entry.title,
-              autor: (entry.authors || []).map((a) => a.name).join(', '),
-              resumo: entry.notes || `Edição catalogada via Open Library (${entry.publish_date || ''}).`,
-              palavras: (entry.subjects || []).slice(0, 5).map((s) => s.name).join(', ')
-            });
-            if (statusEl) statusEl.textContent = `Encontrado na Open Library: "${entry.title}"`;
-            showToast('Livro encontrado na Open Library!', 'success');
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn('Open Library indisponível:', e);
-      }
-
-      document.getElementById('create-isbn').value = cleanIsbn;
-      if (statusEl) {
-        statusEl.textContent = `O ISBN ${cleanIsbn} não consta nas bases públicas (comum em edições antigas ou tiragens locais). O código ISBN já foi preenchido abaixo — complete o título e o autor manualmente.`;
-      }
-      showToast('ISBN não localizado nas bases externas. Preencha título e autor abaixo.', 'warning');
-    };
-
-    function fillFormFromIsbn({ isbn, titulo, autor, resumo, palavras }) {
-      document.getElementById('create-isbn').value = isbn;
-      document.getElementById('create-title').value = titulo;
-      document.getElementById('create-author').value = autor;
-      const cleanSummary = resumo || `Obra "${titulo}" de ${autor || 'autor catalogado'}.`;
-      document.getElementById('create-summary').value = cleanSummary;
-      document.getElementById('create-indication').value = `Indicado para leitores interessados em "${titulo}" e nos temas abordados por ${autor || 'este autor'}.`;
-      if (palavras) document.getElementById('create-keywords').value = palavras;
     }
 
     // Universal Barcode Camera Scanner (html5-qrcode)
@@ -2069,7 +2086,7 @@
         if (onlyAvail && (b.quantidadeDisponivel || 0) <= 0) return false;
         if (Array.isArray(state.advisorIds) && !state.advisorIds.includes(b.id)) return false;
         if (!q) return true;
-        return norm(`${b.titulo} ${b.autor} ${b.codigoInterno} ${b.secao} ${b.estante} ${b.prateleira} ${b.etiquetaPrateleira} ${b.resumo} ${b.indicacao} ${b.palavrasChave}`).includes(q);
+        return norm(`${b.titulo} ${b.autor} ${b.isbn} ${b.codigoInterno} ${b.secao} ${b.estante} ${b.prateleira} ${b.etiquetaPrateleira} ${b.resumo} ${b.indicacao} ${b.palavrasChave}`).includes(q);
       });
 
       if (Array.isArray(state.advisorIds)) {
@@ -2102,13 +2119,20 @@
             >
               <div class="space-y-3.5">
                 <div class="flex items-start gap-3.5">
-                  <div class="w-20 h-28 rounded-r-xl rounded-l-sm p-2.5 flex flex-col justify-between text-ivory shrink-0 book-spine-shadow" style="background:${pal.bg}">
-                    <div class="flex items-center justify-between text-[10px]">
-                      <span class="text-gold-light">${esc(sec.glyph)}</span>
-                      <span class="font-mono font-bold opacity-90">${esc(b.codigoInterno)}</span>
-                    </div>
-                    <p class="font-serif text-[11px] font-bold leading-tight line-clamp-3">${esc(b.titulo)}</p>
-                  </div>
+                  ${
+                    b.capaUrl
+                      ? `<div class="w-20 h-28 rounded-r-xl rounded-l-sm overflow-hidden shrink-0 book-spine-shadow relative bg-forest">
+                          <img src="${esc(b.capaUrl)}" alt="${esc(b.titulo)}" class="w-full h-full object-cover" onerror="this.style.display='none'" />
+                          <span class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-forest/90 text-gold-light font-mono text-[9px] font-bold">${esc(b.codigoInterno)}</span>
+                        </div>`
+                      : `<div class="w-20 h-28 rounded-r-xl rounded-l-sm p-2.5 flex flex-col justify-between text-ivory shrink-0 book-spine-shadow" style="background:${pal.bg}">
+                          <div class="flex items-center justify-between text-[10px]">
+                            <span class="text-gold-light">${esc(sec.glyph)}</span>
+                            <span class="font-mono font-bold opacity-90">${esc(b.codigoInterno)}</span>
+                          </div>
+                          <p class="font-serif text-[11px] font-bold leading-tight line-clamp-3">${esc(b.titulo)}</p>
+                        </div>`
+                  }
 
                   <div class="flex-1 min-w-0 space-y-2">
                     <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${pal.pill}">
@@ -2241,19 +2265,19 @@
       document.getElementById('det-code').textContent = b.codigoInterno;
       document.getElementById('det-section').textContent = b.secao;
       document.getElementById('det-cover').style.background = pal.bg;
-      document.getElementById('det-glyph').textContent = sec.glyph;
-      document.getElementById('det-cover-title').textContent = b.titulo;
-      document.getElementById('det-cover-author').textContent = b.autor;
-
-      const badge = document.getElementById('det-avail-badge');
-      badge.className = avail > 0
-        ? 'px-3 py-1 rounded-full text-xs font-semibold bg-forest-soft text-forest'
-        : 'px-3 py-1 rounded-full text-xs font-semibold bg-terracotta-soft text-terracotta';
-      badge.textContent = avail > 0 ? `Disponível (${avail}/${total})` : 'Emprestado no momento';
-
-      document.getElementById('det-isbn').textContent = `ISBN: ${b.isbn || 'Sem ISBN'}`;
-      document.getElementById('det-title').textContent = b.titulo;
-      document.getElementById('det-author').textContent = `Por ${b.autor}`;
+      const detImg = document.getElementById('det-cover-img');
+      if (detImg) {
+        if (b.capaUrl) {
+          detImg.src = b.capaUrl;
+          detImg.classList.remove('hidden');
+        } else {
+          detImg.src = '';
+          detImg.classList.add('hidden');
+        }
+      }
+      document.getElementById('det-glyph').textContent = b.capaUrl ? '' : sec.glyph;
+      document.getElementById('det-cover-title').textContent = b.capaUrl ? '' : b.titulo;
+      document.getElementById('det-cover-author').textContent = b.capaUrl ? '' : b.autor;
       document.getElementById('det-summary').textContent = b.resumo;
       document.getElementById('det-indication').textContent = b.indicacao;
       document.getElementById('det-coords-pill').textContent = `${b.estante} • ${b.prateleira}`;
@@ -2394,6 +2418,7 @@
       document.getElementById('create-wish-id').value = '';
       document.getElementById('isbn-search-input').value = '';
       document.getElementById('isbn-search-status').classList.add('hidden');
+      setCoverPreview('create', '');
       onCreateSectionChange();
     };
 
@@ -2414,7 +2439,8 @@
         quantidadeDisponivel: qty,
         resumo: document.getElementById('create-summary').value.trim(),
         indicacao: document.getElementById('create-indication').value.trim(),
-        palavrasChave: document.getElementById('create-keywords').value.trim()
+        palavrasChave: document.getElementById('create-keywords').value.trim(),
+        capaUrl: document.getElementById('create-cover-url').value.trim()
       };
 
       state.books.unshift(newBook);
@@ -2663,6 +2689,7 @@
       document.getElementById('edit-isbn').value = b.isbn || '';
       document.getElementById('edit-summary').value = b.resumo;
       document.getElementById('edit-indication').value = b.indicacao;
+      setCoverPreview('edit', b.capaUrl || '');
       openModal('modal-edit-book');
     };
 
@@ -2682,8 +2709,7 @@
       b.isbn = document.getElementById('edit-isbn').value.trim() || 'Sem ISBN / Edição Antiga';
       b.resumo = document.getElementById('edit-summary').value.trim();
       b.indicacao = document.getElementById('edit-indication').value.trim();
-
-      saveLocalFallback();
+      b.capaUrl = document.getElementById('edit-cover-url').value.trim();
       refreshAllUI();
       closeModal('modal-edit-book');
       if (sb) await sb.from('livros').upsert(toDbBook(b));
