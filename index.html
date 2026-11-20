@@ -1139,6 +1139,7 @@
     async function syncSupabase(seedIfEmpty = false, manualNotify = false) {
       if (!sb) {
         setSyncStatus(false, 'Modo Local');
+        if (manualNotify) showToast('Biblioteca Supabase JS não carregou.', 'error');
         return;
       }
       try {
@@ -1148,18 +1149,19 @@
           sb.from('pedidos_compra').select('*').order('created_at', { ascending: false })
         ]);
 
-        if (secRes.error || bookRes.error) {
-          console.warn('Supabase leitura:', secRes.error || bookRes.error);
+        if (bookRes.error) {
+          console.warn('Supabase leitura livros:', bookRes.error);
           setSyncStatus(false, 'Modo Local');
+          if (manualNotify) showToast(`Erro Supabase: ${bookRes.error.message}`, 'error');
           return;
         }
 
-        const remoteSections = secRes.data || [];
+        const remoteSections = secRes.error ? [] : (secRes.data || []);
         const remoteBooks = bookRes.data || [];
-        const remoteWish = wishRes.data || [];
+        const remoteWish = wishRes.error ? [] : (wishRes.data || []);
 
         if (seedIfEmpty && remoteBooks.length === 0) {
-          if (remoteSections.length === 0) {
+          if (remoteSections.length === 0 && !secRes.error) {
             await sb.from('secoes').upsert(DEFAULT_SECTIONS.map(toDbSection), { onConflict: 'id' });
           }
           for (const bk of DEFAULT_BOOKS) {
@@ -1174,7 +1176,9 @@
         if (remoteBooks.length > 0) {
           state.books = remoteBooks.map(fromDbBook);
         }
-        state.wishlist = remoteWish;
+        if (!wishRes.error) {
+          state.wishlist = remoteWish;
+        }
 
         saveLocalFallback();
         refreshAllUI();
@@ -1183,6 +1187,7 @@
       } catch (err) {
         console.warn('Erro syncSupabase:', err);
         setSyncStatus(false, 'Modo Local');
+        if (manualNotify) showToast(`Falha de conexão: ${err.message}`, 'error');
       }
     }
 
