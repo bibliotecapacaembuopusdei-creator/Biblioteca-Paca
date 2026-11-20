@@ -1690,6 +1690,31 @@
       const { sec, palette } = getSectionMeta(book.secao);
       const avail = Number(book.quantidadeDisponivel) || 0;
       const total = Number(book.quantidadeTotal) || 1;
+      const shelfCount = SHELF_CONFIG[book.estante]?.shelves || 17;
+      const currentShelf = Number(book.prateleira) || 1;
+
+      // Outros livros na mesma estante e prateleira para ajudar o leitor a achar na sala
+      const sameShelfBooks = state.books.filter(
+        (b) => b.id !== book.id && b.estante === book.estante && Number(b.prateleira) === currentShelf
+      );
+
+      // Quadradinhos das prateleiras da estante selecionada
+      let shelfSquaresHtml = '';
+      for (let i = 1; i <= shelfCount; i++) {
+        const isTarget = i === currentShelf;
+        const booksInSlot = state.books.filter((b) => b.estante === book.estante && Number(b.prateleira) === i).length;
+        shelfSquaresHtml += `
+          <div title="Prateleira ${i} (${booksInSlot} obra${booksInSlot === 1 ? '' : 's'})" class="h-8 rounded-lg font-mono text-[11px] font-bold flex items-center justify-center border transition ${
+            isTarget
+              ? 'bg-terracotta text-ivory border-gold shadow-xs scale-105'
+              : booksInSlot > 0
+                ? 'bg-forest/10 text-forest border-forest/25'
+                : 'bg-cream text-ink-muted/60 border-sand'
+          }">
+            ${i}
+          </div>
+        `;
+      }
 
       const coverHtml = book.capaUrl
         ? `<img src="${book.capaUrl}" alt="${book.titulo}" referrerpolicy="no-referrer" class="w-24 h-36 rounded-2xl object-cover border border-sand shadow-md shrink-0" />`
@@ -1716,7 +1741,7 @@
         <div class="p-4 rounded-2xl bg-forest text-ivory flex items-center justify-between gap-3">
           <div>
             <p class="text-[11px] uppercase tracking-wider text-gold-light font-semibold">Onde encontrar na sala</p>
-            <p class="font-serif text-lg font-bold">${book.estante} • Prateleira ${book.prateleira}</p>
+            <p class="font-serif text-lg font-bold">${book.estante} • Prateleira ${currentShelf}</p>
             ${book.etiquetaPrateleira ? `<p class="text-xs text-ivory/80">Etiqueta: ${book.etiquetaPrateleira}</p>` : ''}
           </div>
           <div class="text-right">
@@ -1726,12 +1751,42 @@
           </div>
         </div>
 
-        <div class="space-y-2 text-xs sm:text-sm">
+        <!-- Mapa visual dos quadradinhos das prateleiras -->
+        <div class="p-3.5 rounded-2xl bg-cream border border-sand space-y-2.5">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-ink">Mapa da ${book.estante} (${shelfCount} prateleiras)</span>
+            <span class="font-mono text-[11px] font-bold text-terracotta">Prateleira ${currentShelf} marcada</span>
+          </div>
+          <div class="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
+            ${shelfSquaresHtml}
+          </div>
+          ${
+            sameShelfBooks.length > 0
+              ? `<p class="text-[11px] text-ink-muted pt-1">Também nesta prateleira: <strong class="text-ink">${sameShelfBooks.map((x) => x.titulo).join(', ')}</strong>.</p>`
+              : ''
+          }
+        </div>
+
+        <div class="space-y-2.5 text-xs sm:text-sm">
           <div>
             <p class="font-bold text-ink">Sobre a obra</p>
             <p class="text-ink/85 leading-relaxed">${book.resumo || 'Sem resumo cadastrado.'}</p>
           </div>
           ${book.indicacao ? `<div><p class="font-bold text-ink">Indicação de leitura</p><p class="text-ink/85 leading-relaxed">${book.indicacao}</p></div>` : ''}
+          <div class="pt-2 border-t border-sand flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-muted">
+            <span>Seção: <strong class="text-ink">${book.secao}</strong> (${sec.sigla})</span>
+            <span>Exemplares: <strong class="text-ink">${avail} disponíveis de ${total}</strong></span>
+          </div>
+          ${
+            book.palavrasChave
+              ? `<div class="flex flex-wrap gap-1.5 pt-1">${book.palavrasChave
+                  .split(',')
+                  .map((k) => k.trim())
+                  .filter(Boolean)
+                  .map((tag) => `<span class="px-2 py-0.5 rounded-md bg-cream border border-sand text-[11px] text-ink-muted">#${tag}</span>`)
+                  .join('')}</div>`
+              : ''
+          }
         </div>
       `;
       document.getElementById('modal-book-detail').classList.remove('hidden');
