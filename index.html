@@ -327,21 +327,26 @@
             <div class="bg-ivory rounded-3xl p-4 sm:p-6 border border-sand shadow-xs space-y-4">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h3 class="font-serif text-lg sm:text-xl font-bold text-ink">Preenchimento Automático por ISBN</h3>
-                  <p class="text-xs text-ink-muted">Consulta simultaneamente a base brasileira (BrasilAPI / CBL), Google Books e Open Library.</p>
+                  <h3 class="font-serif text-lg sm:text-xl font-bold text-ink">Preenchimento Automático (ISBN ou Foto da Capa)</h3>
+                  <p class="text-xs text-ink-muted">Busque pelo ISBN ou tire uma foto da capa para a IA preencher os dados automaticamente.</p>
                 </div>
-                <button type="button" onclick="toggleBarcodeScanner()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory text-xs font-semibold transition cursor-pointer shrink-0">
-                  <i data-lucide="scan-barcode" class="w-4 h-4"></i>
-                  <span id="btn-scanner-label">Escanear Código de Barras</span>
-                </button>
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                  <input type="file" id="ai-cover-scan-input" accept="image/*" capture="environment" onchange="handleAiCoverScan(event)" class="hidden" />
+                  <button type="button" id="btn-ai-cover-scan" onclick="document.getElementById('ai-cover-scan-input').click()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-forest hover:bg-forest-light text-ivory text-xs font-semibold transition cursor-pointer">
+                    <i data-lucide="camera" class="w-4 h-4 text-gold-light"></i>
+                    <span id="btn-ai-cover-label">Ler Capa com IA</span>
+                  </button>
+                  <button type="button" onclick="toggleBarcodeScanner()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-terracotta hover:bg-terracotta-dark text-ivory text-xs font-semibold transition cursor-pointer">
+                    <i data-lucide="scan-barcode" class="w-4 h-4"></i>
+                    <span id="btn-scanner-label">Escanear Código de Barras</span>
+                  </button>
+                </div>
               </div>
 
               <!-- Camera Scanner Container -->
-              <div id="scanner-wrapper" class="hidden rounded-2xl overflow-hidden border-2 border-terracotta bg-black p-2 space-y-2">
-                <div id="qr-reader" class="w-full max-w-md mx-auto rounded-xl overflow-hidden"></div>
-                <div class="text-center">
-                  <button type="button" onclick="stopBarcodeScanner()" class="px-4 py-1.5 rounded-lg bg-ivory text-ink text-xs font-semibold cursor-pointer">Fechar Câmera</button>
-                </div>
+              <div id="scanner-wrapper" class="hidden rounded-2xl overflow-hidden border border-sand bg-ink p-3 space-y-2">
+                <div id="qr-reader" class="w-full max-w-sm mx-auto rounded-xl overflow-hidden"></div>
+                <p class="text-[11px] text-center text-ivory/80">Aponte a câmera para o código de barras ISBN atrás do livro.</p>
               </div>
 
               <div class="flex flex-col sm:flex-row gap-2">
@@ -1482,54 +1487,169 @@
     };
 
     // =========================================================================
-    // 4. PUBLIC CATALOG & LITERARY CONSULTANT
+    // 3B. AI COVER RECOGNITION (GEMINI VISION FOR BOOKS WITHOUT ISBN)
     // =========================================================================
-    function getSectionMeta(sectionName) {
-      const sec = state.sections.find((s) => s.nome === sectionName) || state.sections[0] || DEFAULT_SECTIONS[0];
-      const palette = SECTION_PALETTES[sec.paletteKey] || SECTION_PALETTES.forest;
-      return { sec, palette };
+    window.handleAiCoverScan = async function (event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const status = document.getElementById('isbn-lookup-status');
+      const btn = document.getElementById('btn-ai-cover-scan');
+      const label = document.getElementById('btn-ai-cover-label');
+
+      status.classList.remove('hidden');
+      status.textContent = 'Analisando foto da capa com IA e extraindo título, autor e resumo...';
+      if (btn) btn.disabled = true;
+      if (label) label.textContent = 'Lendo capa...';
+
+      try {
+        // Compress two versions: high-legibility for AI reading and compact for Supabase storage
+        const [aiImageDataUrl, coverThumbDataUrl] = await Promise.all([
+          compressImageToDataUrl(file, 900, 0.85),
+          compressImageToDataUrl(file, 280, 0.72)
+        ]);
+        const base64Image = aiImageDataUrl.split(',')[1];
+        const sectionNames = state.sections.map((s) => s.nome).join(', ');
+
+        const promptText = `Você é um bibliotecário catalogador. Analise a foto da capa deste livro e extraia todas as informações visíveis (e seu conhecimento bibliográfico sobre esta obra, se reconhecida).
+Seções disponíveis na biblioteca: [${sectionNames}].
+Responda exclusivamente em JSON válido com os campos:
+- titulo: título completo do livro como aparece na capa
+- autor: nome do(s) autor(es) (ou "Autor não identificado" se não constar)
+- secao: escolha exatamente um dos nomes da lista de seções disponíveis acima que melhor combina com o livro
+- resumo: resumo claro e objetivo da obra em português (2 a 3 frases)
+- indicacao: para qual perfil de leitor este livro é indicado (1 a 2 frases)
+- palavras_chave: 5 palavras-chave separadas por vírgula`;
+
+        const payload = {
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: promptText },
+                { inlineData: { mimeType: 'image/jpeg', data: base64Image } }
+              ]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                titulo: { type: 'STRING' },
+                autor: { type: 'STRING' },
+                secao: { type: 'STRING' },
+                resumo: { type: 'STRING' },
+                indicacao: { type: 'STRING' },
+                palavras_chave: { type: 'STRING' }
+              },
+              required: ['titulo', 'autor', 'secao', 'resumo', 'indicacao', 'palavras_chave']
+            }
+          }
+        };
+
+        const apiKey = '';
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+        let response = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (response.ok) break;
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        }
+
+        if (!response || !response.ok) {
+          throw new Error('Não foi possível conectar ao serviço de leitura por IA.');
+        }
+
+        const result = await response.json();
+        const rawJson = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawJson) throw new Error('Resposta vazia da IA.');
+
+        const parsed = JSON.parse(rawJson);
+
+        document.getElementById('create-title').value = parsed.titulo || '';
+        document.getElementById('create-author').value = parsed.autor || '';
+        document.getElementById('create-isbn').value = 'Sem ISBN / Edição Antiga';
+        document.getElementById('create-summary').value = parsed.resumo || '';
+        document.getElementById('create-indication').value = parsed.indicacao || '';
+        document.getElementById('create-keywords').value = parsed.palavras_chave || '';
+
+        const matchedSec = state.sections.find((s) => s.nome.toLowerCase() === String(parsed.secao || '').toLowerCase());
+        if (matchedSec) {
+          document.getElementById('create-section').value = matchedSec.nome;
+          onCreateSectionChange();
+        }
+
+        setCoverPreview('create', coverThumbDataUrl);
+        status.textContent = `Capa lida com sucesso pela IA: "${parsed.titulo}" (${parsed.autor})`;
+        showToast('Dados e foto da capa preenchidos pela IA!', 'success');
+      } catch (err) {
+        status.textContent = 'Não foi possível ler a capa automaticamente. Verifique a iluminação e tente novamente.';
+        showToast('Erro ao analisar foto da capa.', 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+        if (label) label.textContent = 'Ler Capa com IA';
+        event.target.value = '';
+      }
+    };
+
+    // =========================================================================
+    // 4. PUBLIC READER CATALOG, SEARCH, ADVISOR & BOOK DETAILS MODAL
+    // =========================================================================
+    function getSectionObj(sectionName) {
+      return state.sections.find((s) => s.nome === sectionName) || state.sections[0] || DEFAULT_SECTIONS[0];
+    }
+
+    function getPaletteForSection(sectionName) {
+      const sec = getSectionObj(sectionName);
+      return SECTION_PALETTES[sec.paletteKey] || SECTION_PALETTES.forest;
     }
 
     function renderReaderCatalog() {
-      const totalBooks = state.books.length;
-      const totalCopies = state.books.reduce((acc, b) => acc + (Number(b.quantidadeTotal) || 0), 0);
-      const statsEl = document.getElementById('header-stats');
-      if (statsEl) statsEl.textContent = `${totalBooks} obras • ${totalCopies} exemplares`;
+      const totalWorks = state.books.length;
+      const totalCopies = state.books.reduce((acc, b) => acc + (Number(b.quantidadeTotal) || 1), 0);
+      const headerStats = document.getElementById('header-stats');
+      if (headerStats) headerStats.textContent = `${totalWorks} obras • ${totalCopies} exemplares`;
 
-      // Render Section Filter Pills
-      const pillsContainer = document.getElementById('section-filter-pills');
-      if (pillsContainer) {
+      // Section Filter Pills
+      const pillsEl = document.getElementById('section-filter-pills');
+      if (pillsEl) {
         const allActive = state.selectedSection === 'ALL';
         let html = `
-          <button type="button" onclick="selectCatalogSection('ALL')" class="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+          <button type="button" onclick="selectSectionFilter('ALL')" class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
             allActive ? 'bg-forest text-ivory border-forest shadow-xs' : 'bg-ivory text-ink border-sand hover:bg-cream-dark'
           }">
             <span>Todo o Acervo</span>
-            <span class="px-1.5 py-0.5 rounded-md text-[10px] font-mono ${allActive ? 'bg-ivory/20 text-ivory' : 'bg-cream text-ink-muted'}">${totalBooks}</span>
+            <span class="px-1.5 py-0.5 rounded-md text-[10px] ${allActive ? 'bg-ivory/20 text-ivory' : 'bg-cream text-ink-muted'}">${totalWorks}</span>
           </button>
         `;
         state.sections.forEach((sec) => {
           const count = state.books.filter((b) => b.secao === sec.nome).length;
           const active = state.selectedSection === sec.nome;
           html += `
-            <button type="button" onclick="selectCatalogSection('${sec.nome.replace(/'/g, "\\'")}')" class="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+            <button type="button" onclick="selectSectionFilter('${sec.nome.replace(/'/g, "\\'")}')" class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
               active ? 'bg-forest text-ivory border-forest shadow-xs' : 'bg-ivory text-ink border-sand hover:bg-cream-dark'
             }">
               <span>${sec.nome}</span>
-              <span class="px-1.5 py-0.5 rounded-md text-[10px] font-mono ${active ? 'bg-ivory/20 text-ivory' : 'bg-cream text-ink-muted'}">${count}</span>
+              <span class="px-1.5 py-0.5 rounded-md text-[10px] ${active ? 'bg-ivory/20 text-ivory' : 'bg-cream text-ink-muted'}">${count}</span>
             </button>
           `;
         });
-        pillsContainer.innerHTML = html;
+        pillsEl.innerHTML = html;
       }
 
-      // Filter Books
+      // Filter books
       const q = state.searchQuery.trim().toLowerCase();
       const filtered = state.books.filter((b) => {
         if (state.selectedSection !== 'ALL' && b.secao !== state.selectedSection) return false;
         if (state.onlyAvailable && (Number(b.quantidadeDisponivel) || 0) <= 0) return false;
         if (!q) return true;
-        const hay = `${b.titulo} ${b.autor} ${b.codigoInterno} ${b.isbn || ''} ${b.secao} ${b.estante} ${b.etiquetaPrateleira || ''} ${b.resumo || ''} ${b.palavrasChave || ''}`.toLowerCase();
+        const hay = `${b.titulo} ${b.autor} ${b.codigoInterno} ${b.isbn} ${b.secao} ${b.estante} ${b.etiquetaPrateleira} ${b.resumo} ${b.palavrasChave}`.toLowerCase();
         return hay.includes(q);
       });
 
@@ -1537,67 +1657,59 @@
       if (countBadge) countBadge.textContent = `${filtered.length} ${filtered.length === 1 ? 'obra' : 'obras'}`;
 
       const grid = document.getElementById('books-grid');
-      const emptyState = document.getElementById('catalog-empty-state');
+      const empty = document.getElementById('catalog-empty-state');
+      if (!grid || !empty) return;
 
       if (filtered.length === 0) {
         grid.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        const wishInput = document.getElementById('wish-title');
-        if (wishInput && state.searchQuery) wishInput.value = state.searchQuery;
+        empty.classList.remove('hidden');
+        const wishTitle = document.getElementById('wish-title');
+        if (wishTitle && state.searchQuery) wishTitle.value = state.searchQuery;
         if (window.lucide) lucide.createIcons();
         return;
       }
 
-      emptyState.classList.add('hidden');
+      empty.classList.add('hidden');
       grid.innerHTML = filtered
-        .map((book) => {
-          const { sec, palette } = getSectionMeta(book.secao);
-          const avail = Number(book.quantidadeDisponivel) || 0;
-          const total = Number(book.quantidadeTotal) || 1;
+        .map((b) => {
+          const sec = getSectionObj(b.secao);
+          const pal = getPaletteForSection(b.secao);
+          const avail = Number(b.quantidadeDisponivel) || 0;
+          const total = Number(b.quantidadeTotal) || 1;
           const isAvail = avail > 0;
-
-          const visualCover = book.capaUrl
-            ? `<div class="w-16 h-24 rounded-xl overflow-hidden border border-sand shrink-0 shadow-xs bg-forest">
-                 <img src="${book.capaUrl}" alt="${book.titulo}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
-               </div>`
-            : `<div class="w-16 h-24 rounded-xl shrink-0 p-2 flex flex-col justify-between border shadow-xs" style="background:${palette.bg}; border-color:${palette.border}; color:${palette.text};">
-                 <span class="text-xs opacity-80">${sec.glyph}</span>
-                 <span class="font-mono text-[10px] font-bold tracking-tight leading-tight">${book.codigoInterno}</span>
+          const coverHtml = b.capaUrl
+            ? `<img src="${b.capaUrl}" alt="${b.titulo}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />`
+            : `<div class="w-full h-full flex flex-col justify-between p-2.5" style="background:${pal.bg}; color:${pal.text}; border:1px solid ${pal.border};">
+                 <span class="text-sm opacity-90">${sec.glyph}</span>
+                 <span class="font-mono text-[10px] font-bold tracking-wider">${b.codigoInterno}</span>
                </div>`;
 
           return `
-            <article onclick="openBookDetail('${book.id}')" class="book-card bg-ivory rounded-3xl p-4 sm:p-5 border border-sand flex flex-col justify-between gap-4 cursor-pointer">
-              <div class="space-y-3">
-                <div class="flex items-start gap-3.5">
-                  ${visualCover}
-                  <div class="min-w-0 flex-1 space-y-1.5">
-                    <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold" style="background:${palette.badgeBg}; color:${palette.badgeText};">
-                      ${book.secao}
-                    </span>
-                    <div class="flex items-center gap-1 text-[11px] font-mono font-bold text-terracotta">
-                      <i data-lucide="map-pin" class="w-3 h-3 shrink-0"></i>
-                      <span class="truncate">${book.estante} • Prat. ${book.prateleira}</span>
-                    </div>
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                      isAvail ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
-                    }">
-                      <span class="w-1.5 h-1.5 rounded-full ${isAvail ? 'bg-emerald-600' : 'bg-amber-500'}"></span>
-                      ${isAvail ? `${avail} de ${total} disp.` : 'Emprestado'}
-                    </span>
+            <article onclick="openBookDetail('${b.id}')" class="book-card bg-ivory rounded-3xl p-4 border border-sand flex flex-col justify-between gap-3.5 cursor-pointer">
+              <div class="flex gap-3.5 items-start">
+                <div class="w-16 h-24 rounded-xl overflow-hidden shrink-0 shadow-xs border border-sand">
+                  ${coverHtml}
+                </div>
+                <div class="min-w-0 flex-1 space-y-1.5">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold truncate" style="background:${pal.badgeBg}; color:${pal.badgeText};">${b.secao}</span>
+                    <span class="font-mono text-[10px] font-bold text-ink-muted">${b.codigoInterno}</span>
                   </div>
+                  <h3 class="font-serif text-base font-bold text-ink leading-snug line-clamp-2">${b.titulo}</h3>
+                  <p class="text-xs text-ink-muted truncate">${b.autor}</p>
                 </div>
-
-                <div>
-                  <h3 class="font-serif text-lg font-bold text-ink leading-snug line-clamp-2">${book.titulo}</h3>
-                  <p class="text-xs font-medium text-ink-muted mt-0.5 truncate">${book.autor}</p>
-                </div>
-
-                <p class="text-xs text-ink/80 line-clamp-2 leading-relaxed">${book.resumo || ''}</p>
               </div>
 
-              <div class="pt-3 border-t border-sand/70 flex items-center justify-between text-[11px] font-semibold text-forest">
-                <span class="font-mono text-ink-muted">${book.codigoInterno}</span>
-                <span class="inline-flex items-center gap-1">Ver localização <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></span>
+              <div class="pt-2.5 border-t border-sand flex items-center justify-between gap-2 text-xs">
+                <div class="inline-flex items-center gap-1.5 font-semibold text-forest truncate">
+                  <i data-lucide="map-pin" class="w-3.5 h-3.5 text-terracotta shrink-0"></i>
+                  <span class="truncate">${b.estante} • Prat. ${b.prateleira}</span>
+                </div>
+                <span class="shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                  isAvail ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }">
+                  ${isAvail ? `${avail}/${total} disp.` : 'Emprestado'}
+                </span>
               </div>
             </article>
           `;
@@ -1607,20 +1719,15 @@
       if (window.lucide) lucide.createIcons();
     }
 
-    window.selectCatalogSection = function (sec) {
-      state.selectedSection = sec;
-      renderReaderCatalog();
-    };
-
-    window.toggleOnlyAvailable = function (val) {
-      state.onlyAvailable = val;
+    window.selectSectionFilter = function (secName) {
+      state.selectedSection = secName;
       renderReaderCatalog();
     };
 
     window.handlePublicSearch = function (val) {
-      state.searchQuery = val;
+      state.searchQuery = val || '';
       const clearBtn = document.getElementById('btn-clear-search');
-      if (clearBtn) clearBtn.classList.toggle('hidden', !val);
+      if (clearBtn) clearBtn.classList.toggle('hidden', !state.searchQuery);
       renderReaderCatalog();
     };
 
@@ -1628,6 +1735,11 @@
       const inp = document.getElementById('public-search-input');
       if (inp) inp.value = '';
       handlePublicSearch('');
+    };
+
+    window.toggleOnlyAvailable = function (checked) {
+      state.onlyAvailable = Boolean(checked);
+      renderReaderCatalog();
     };
 
     window.scrollToCatalog = function () {
@@ -1643,198 +1755,208 @@
     window.runLiteraryAdvisor = function () {
       const prompt = (document.getElementById('advisor-prompt')?.value || '').trim().toLowerCase();
       const box = document.getElementById('advisor-results');
-      if (!prompt) return showToast('Descreva o assunto ou o que você procura ler.', 'info');
+      if (!box) return;
+      if (!prompt) return showToast('Descreva o tema ou o que você gostaria de ler.', 'info');
 
-      const words = prompt.split(/\s+/).filter((w) => w.length > 2);
+      const tokens = prompt
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .split(/\W+/)
+        .filter((w) => w.length > 2);
+
       const scored = state.books
         .map((b) => {
-          const text = `${b.titulo} ${b.autor} ${b.secao} ${b.resumo} ${b.indicacao} ${b.palavrasChave}`.toLowerCase();
+          const blob = `${b.titulo} ${b.autor} ${b.secao} ${b.resumo} ${b.indicacao} ${b.palavrasChave}`
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
           let score = 0;
-          words.forEach((w) => {
-            if (text.includes(w)) score += 2;
+          tokens.forEach((t) => {
+            if (blob.includes(t)) score += 2;
           });
-          if ((b.quantidadeDisponivel || 0) > 0) score += 0.5;
+          if ((Number(b.quantidadeDisponivel) || 0) > 0) score += 0.5;
           return { book: b, score };
         })
-        .filter((x) => x.score >= 2)
+        .filter((x) => x.score > 0.5)
         .sort((a, b) => b.score - a.score)
         .slice(0, 3);
 
       box.classList.remove('hidden');
       if (scored.length === 0) {
-        box.innerHTML = `<p class="text-xs text-ink-muted">Não encontrei correspondência exata. Experimente termos como <em>oração, virtudes, filosofia, história ou literatura</em>.</p>`;
+        box.innerHTML = `<p class="text-xs text-ink-muted">Não encontramos correspondência exata. Experimente buscar por palavras como <em>oração, virtudes, filosofia, história ou clássicos</em>.</p>`;
         return;
       }
 
       box.innerHTML = `
-        <p class="text-[11px] font-bold uppercase tracking-wider text-forest">Sugestões nas estantes:</p>
+        <p class="text-[11px] font-bold uppercase tracking-wider text-forest">Sugestões do Nosso Acervo:</p>
         ${scored
           .map(
             ({ book }) => `
-          <div onclick="openBookDetail('${book.id}')" class="p-2.5 rounded-xl bg-cream hover:bg-cream-dark border border-sand flex items-center justify-between gap-2 cursor-pointer transition">
-            <div class="min-w-0">
-              <p class="font-serif text-sm font-bold text-ink truncate">${book.titulo}</p>
-              <p class="text-[11px] text-ink-muted truncate">${book.autor} • <strong class="text-terracotta">${book.estante}, Prat. ${book.prateleira}</strong></p>
-            </div>
-            <span class="font-mono text-[10px] font-bold px-2 py-1 rounded bg-forest text-gold-light shrink-0">${book.codigoInterno}</span>
-          </div>
-        `
+            <button type="button" onclick="openBookDetail('${book.id}')" class="w-full text-left p-2.5 rounded-xl bg-cream hover:bg-cream-dark border border-sand flex items-center justify-between gap-2 transition cursor-pointer">
+              <div class="min-w-0">
+                <p class="font-serif text-xs font-bold text-ink truncate">${book.titulo}</p>
+                <p class="text-[11px] text-ink-muted truncate">${book.autor} • <strong class="text-forest">${book.estante}, P${book.prateleira}</strong></p>
+              </div>
+              <span class="px-2 py-0.5 rounded-md bg-forest text-gold-light font-mono text-[10px] font-bold shrink-0">${book.codigoInterno}</span>
+            </button>
+          `
           )
           .join('')}
       `;
     };
 
     window.openBookDetail = function (bookId) {
-      const book = state.books.find((b) => b.id === bookId);
-      if (!book) return;
-      const { sec, palette } = getSectionMeta(book.secao);
-      const avail = Number(book.quantidadeDisponivel) || 0;
-      const total = Number(book.quantidadeTotal) || 1;
-      const shelfCount = SHELF_CONFIG[book.estante]?.shelves || 17;
-      const currentShelf = Number(book.prateleira) || 1;
+      const b = state.books.find((x) => x.id === bookId);
+      if (!b) return;
+      const sec = getSectionObj(b.secao);
+      const pal = getPaletteForSection(b.secao);
+      const avail = Number(b.quantidadeDisponivel) || 0;
+      const total = Number(b.quantidadeTotal) || 1;
+      const totalShelves = SHELF_CONFIG[b.estante]?.shelves || 17;
 
-      // Outros livros na mesma estante e prateleira para ajudar o leitor a achar na sala
-      const sameShelfBooks = state.books.filter(
-        (b) => b.id !== book.id && b.estante === book.estante && Number(b.prateleira) === currentShelf
-      );
-
-      // Quadradinhos das prateleiras da estante selecionada
-      let shelfSquaresHtml = '';
-      for (let i = 1; i <= shelfCount; i++) {
-        const isTarget = i === currentShelf;
-        const booksInSlot = state.books.filter((b) => b.estante === book.estante && Number(b.prateleira) === i).length;
-        shelfSquaresHtml += `
-          <div title="Prateleira ${i} (${booksInSlot} obra${booksInSlot === 1 ? '' : 's'})" class="h-8 rounded-lg font-mono text-[11px] font-bold flex items-center justify-center border transition ${
-            isTarget
-              ? 'bg-terracotta text-ivory border-gold shadow-xs scale-105'
-              : booksInSlot > 0
-                ? 'bg-forest/10 text-forest border-forest/25'
-                : 'bg-cream text-ink-muted/60 border-sand'
+      let shelfSquares = '';
+      for (let i = 1; i <= totalShelves; i++) {
+        const isCurrent = Number(b.prateleira) === i;
+        shelfSquares += `
+          <div class="h-8 rounded-lg flex items-center justify-center font-mono text-xs font-bold border ${
+            isCurrent
+              ? 'bg-terracotta text-ivory border-terracotta shadow-xs scale-105'
+              : 'bg-cream text-ink-muted border-sand'
           }">
-            ${i}
+            P${i}
           </div>
         `;
       }
 
-      const coverHtml = book.capaUrl
-        ? `<img src="${book.capaUrl}" alt="${book.titulo}" referrerpolicy="no-referrer" class="w-24 h-36 rounded-2xl object-cover border border-sand shadow-md shrink-0" />`
-        : `<div class="w-24 h-36 rounded-2xl p-3 flex flex-col justify-between shrink-0 shadow-md" style="background:${palette.bg}; color:${palette.text};">
+      const sameShelfBooks = state.books.filter(
+        (other) => other.id !== b.id && other.estante === b.estante && Number(other.prateleira) === Number(b.prateleira)
+      );
+
+      const coverHtml = b.capaUrl
+        ? `<img src="${b.capaUrl}" alt="${b.titulo}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />`
+        : `<div class="w-full h-full flex flex-col justify-between p-3" style="background:${pal.bg}; color:${pal.text}; border:1px solid ${pal.border};">
              <span class="text-lg">${sec.glyph}</span>
-             <span class="font-mono text-xs font-bold">${book.codigoInterno}</span>
+             <span class="font-mono text-xs font-bold">${b.codigoInterno}</span>
            </div>`;
 
-      document.getElementById('book-detail-content').innerHTML = `
-        <div class="flex items-start justify-between gap-3">
-          <span class="px-3 py-1 rounded-full text-xs font-bold" style="background:${palette.badgeBg}; color:${palette.badgeText};">${book.secao}</span>
-          <button type="button" onclick="closeModal('modal-book-detail')" class="p-1 text-ink-muted hover:text-ink cursor-pointer"><i data-lucide="x" class="w-5 h-5"></i></button>
+      const content = document.getElementById('book-detail-content');
+      content.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="px-3 py-1 rounded-full text-xs font-bold" style="background:${pal.badgeBg}; color:${pal.badgeText};">${sec.sigla} • ${b.secao}</span>
+          <button type="button" onclick="closeModal('modal-book-detail')" class="p-1.5 rounded-xl bg-cream hover:bg-cream-dark text-ink-muted cursor-pointer">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
         </div>
 
         <div class="flex gap-4 items-start">
-          ${coverHtml}
-          <div class="space-y-1.5 min-w-0">
-            <h3 class="font-serif text-xl sm:text-2xl font-bold text-ink leading-tight">${book.titulo}</h3>
-            <p class="text-sm font-medium text-ink-muted">${book.autor}</p>
-            <p class="font-mono text-xs text-ink-muted">Código: <strong>${book.codigoInterno}</strong> • ISBN: ${book.isbn || '—'}</p>
+          <div class="w-24 h-36 rounded-2xl overflow-hidden shrink-0 border border-sand shadow-sm">
+            ${coverHtml}
+          </div>
+          <div class="space-y-1.5 min-w-0 flex-1">
+            <h3 class="font-serif text-xl sm:text-2xl font-bold text-ink leading-snug">${b.titulo}</h3>
+            <p class="text-sm font-medium text-ink-muted">${b.autor}</p>
+            <p class="font-mono text-xs text-ink-muted">Código: <strong class="text-ink">${b.codigoInterno}</strong> • ISBN: ${b.isbn || 'Não informado'}</p>
+            <p class="text-xs text-ink-muted">Exemplares: <strong class="text-ink">${avail} disponíveis</strong> de ${total} no acervo</p>
           </div>
         </div>
 
-        <div class="p-4 rounded-2xl bg-forest text-ivory flex items-center justify-between gap-3">
+        <div class="rounded-2xl bg-forest text-ivory p-4 flex items-center justify-between gap-3">
           <div>
-            <p class="text-[11px] uppercase tracking-wider text-gold-light font-semibold">Onde encontrar na sala</p>
-            <p class="font-serif text-lg font-bold">${book.estante} • Prateleira ${currentShelf}</p>
-            ${book.etiquetaPrateleira ? `<p class="text-xs text-ivory/80">Etiqueta: ${book.etiquetaPrateleira}</p>` : ''}
+            <p class="text-[10px] uppercase tracking-wider text-gold-light font-bold">Onde encontrar na sala</p>
+            <p class="font-serif text-lg sm:text-xl font-bold">${b.estante} • Prateleira ${b.prateleira}</p>
+            ${b.etiquetaPrateleira ? `<p class="text-xs text-ivory/80">Etiqueta: ${b.etiquetaPrateleira}</p>` : ''}
           </div>
-          <div class="text-right">
-            <span class="px-3 py-1 rounded-full text-xs font-bold ${avail > 0 ? 'bg-emerald-500/20 text-emerald-200' : 'bg-terracotta text-ivory'}">
-              ${avail > 0 ? `${avail}/${total} Disponível` : 'Emprestado'}
-            </span>
-          </div>
+          <span class="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 ${
+            avail > 0 ? 'bg-forest-light text-gold-light border border-gold/40' : 'bg-terracotta text-ivory'
+          }">
+            ${avail}/${total} ${avail > 0 ? 'Disponível' : 'Emprestado'}
+          </span>
         </div>
 
-        <!-- Mapa visual dos quadradinhos das prateleiras -->
-        <div class="p-3.5 rounded-2xl bg-cream border border-sand space-y-2.5">
+        <!-- Visual Shelf Map -->
+        <div class="rounded-2xl bg-cream/70 border border-sand p-3.5 space-y-2">
           <div class="flex items-center justify-between text-xs">
-            <span class="font-bold text-ink">Mapa da ${book.estante} (${shelfCount} prateleiras)</span>
-            <span class="font-mono text-[11px] font-bold text-terracotta">Prateleira ${currentShelf} marcada</span>
+            <span class="font-bold text-ink">Mapa Visual — ${b.estante} (${totalShelves} prateleiras)</span>
+            <span class="text-[11px] font-semibold text-terracotta">Destaque: P${b.prateleira}</span>
           </div>
           <div class="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
-            ${shelfSquaresHtml}
+            ${shelfSquares}
           </div>
           ${
             sameShelfBooks.length > 0
-              ? `<p class="text-[11px] text-ink-muted pt-1">Também nesta prateleira: <strong class="text-ink">${sameShelfBooks.map((x) => x.titulo).join(', ')}</strong>.</p>`
+              ? `<p class="text-[11px] text-ink-muted pt-1">Na mesma prateleira: <strong class="text-ink">${sameShelfBooks.map((x) => x.titulo).join(', ')}</strong></p>`
               : ''
           }
         </div>
 
-        <div class="space-y-2.5 text-xs sm:text-sm">
+        <div class="space-y-3 text-sm">
           <div>
-            <p class="font-bold text-ink">Sobre a obra</p>
-            <p class="text-ink/85 leading-relaxed">${book.resumo || 'Sem resumo cadastrado.'}</p>
+            <h4 class="font-bold text-ink text-xs uppercase tracking-wider mb-1">Sobre a obra</h4>
+            <p class="text-ink-muted leading-relaxed">${b.resumo || 'Sem resumo cadastrado.'}</p>
           </div>
-          ${book.indicacao ? `<div><p class="font-bold text-ink">Indicação de leitura</p><p class="text-ink/85 leading-relaxed">${book.indicacao}</p></div>` : ''}
-          <div class="pt-2 border-t border-sand flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-muted">
-            <span>Seção: <strong class="text-ink">${book.secao}</strong> (${sec.sigla})</span>
-            <span>Exemplares: <strong class="text-ink">${avail} disponíveis de ${total}</strong></span>
+          <div>
+            <h4 class="font-bold text-ink text-xs uppercase tracking-wider mb-1">Indicação de leitura</h4>
+            <p class="text-ink-muted leading-relaxed">${b.indicacao || 'Leitura recomendada pela curadoria da biblioteca.'}</p>
           </div>
           ${
-            book.palavrasChave
-              ? `<div class="flex flex-wrap gap-1.5 pt-1">${book.palavrasChave
-                  .split(',')
-                  .map((k) => k.trim())
-                  .filter(Boolean)
-                  .map((tag) => `<span class="px-2 py-0.5 rounded-md bg-cream border border-sand text-[11px] text-ink-muted">#${tag}</span>`)
-                  .join('')}</div>`
+            b.palavrasChave
+              ? `<div class="flex flex-wrap gap-1.5 pt-1">
+                  ${b.palavrasChave
+                    .split(',')
+                    .map((k) => k.trim())
+                    .filter(Boolean)
+                    .map((k) => `<span class="px-2.5 py-0.5 rounded-lg bg-cream border border-sand text-[11px] text-ink-muted">#${k}</span>`)
+                    .join('')}
+                </div>`
               : ''
           }
         </div>
       `;
+
       document.getElementById('modal-book-detail').classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
     };
 
     window.submitWishlistRequest = async function (e) {
       e.preventDefault();
-      const title = document.getElementById('wish-title').value.trim();
-      const author = document.getElementById('wish-author').value.trim();
-      if (!title) return;
+      const titulo = document.getElementById('wish-title')?.value.trim();
+      const autor = document.getElementById('wish-author')?.value.trim();
+      if (!titulo) return;
 
-      const item = { id: `wish-${Date.now()}`, titulo: title, autor: author, created_at: new Date().toISOString() };
+      const item = { id: `wish-${Date.now()}`, titulo, autor: autor || '' };
       state.wishlist.unshift(item);
       saveLocalFallback();
       renderAdminWishlist();
-
-      if (sb) {
-        await sb.from('pedidos_compra').insert({ id: item.id, titulo: title, autor: author });
-      }
       e.target.reset();
+      if (sb) await sb.from('pedidos_compra').upsert(item, { onConflict: 'id' });
       showToast('Sugestão enviada para a equipe da biblioteca!', 'success');
     };
 
     // =========================================================================
-    // 5. ADMIN PANEL & CRUD OPERATIONS
+    // 5. STAFF AUTH & ADMIN PANEL CONTROLS
     // =========================================================================
     window.openStaffAccess = function () {
       if (state.adminAuthenticated) {
         switchToAdminView();
         return;
       }
-      document.getElementById('pin-error-msg').classList.add('hidden');
-      document.getElementById('pin-login-input').value = '';
+      document.getElementById('pin-error-msg')?.classList.add('hidden');
+      const inp = document.getElementById('pin-login-input');
+      if (inp) inp.value = '';
       document.getElementById('modal-pin').classList.remove('hidden');
-      setTimeout(() => document.getElementById('pin-login-input')?.focus(), 100);
+      setTimeout(() => inp?.focus(), 50);
     };
 
     window.submitPinLogin = function (e) {
       e.preventDefault();
-      const val = document.getElementById('pin-login-input').value.trim();
-      if (val === state.adminPin || val === 'PACAEMBU1974') {
+      const entered = (document.getElementById('pin-login-input')?.value || '').trim();
+      if (entered === state.adminPin) {
         state.adminAuthenticated = true;
         closeModal('modal-pin');
         switchToAdminView();
         showToast('Acesso da equipe liberado!', 'success');
       } else {
-        document.getElementById('pin-error-msg').classList.remove('hidden');
+        document.getElementById('pin-error-msg')?.classList.remove('hidden');
       }
     };
 
