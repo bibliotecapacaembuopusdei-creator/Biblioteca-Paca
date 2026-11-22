@@ -1644,7 +1644,24 @@ Responda exclusivamente em JSON válido com: titulo, autor, secao, resumo, indic
           status.textContent = geminiErrorDetail
             ? `Aviso Gemini (${geminiErrorDetail}). Lendo texto da capa no dispositivo...`
             : 'Reconhecendo texto da capa no dispositivo (aguarde alguns segundos)...';
-          const ocrResult = await Tesseract.recognize(aiImageDataUrl, 'por+eng');
+
+          // Recorta o topo da capa (onde fica o título/autor) para evitar confundir ilustrações com letras
+          const topCropUrl = await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const cropH = Math.round(img.height * 0.42);
+              canvas.width = img.width;
+              canvas.height = cropH;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, img.width, cropH, 0, 0, img.width, cropH);
+              resolve(canvas.toDataURL('image/jpeg', 0.9));
+            };
+            img.onerror = () => resolve(aiImageDataUrl);
+            img.src = aiImageDataUrl;
+          });
+
+          const ocrResult = await Tesseract.recognize(topCropUrl, 'por+eng');
           const extractedText = ocrResult?.data?.text || '';
           if (!extractedText.trim()) {
             throw new Error(geminiErrorDetail || 'Nenhum texto legível encontrado na foto.');
@@ -2501,6 +2518,9 @@ Responda exclusivamente em JSON válido com: titulo, autor, secao, resumo, indic
     window.handleSaveGeminiKey = function (e) {
       e.preventDefault();
       const key = document.getElementById('gemini-api-key-input').value.trim();
+      if (key && !key.startsWith('AIza')) {
+        showToast('Atenção: chaves válidas da API Gemini começam com "AIzaSy...". Verifique no Google AI Studio.', 'error');
+      }
       state.geminiKey = key;
       localStorage.setItem(STORAGE_KEYS.GEMINI_KEY, key);
       showToast(key ? 'Chave Gemini salva!' : 'Chave removida (usando OCR gratuito).', 'success');
